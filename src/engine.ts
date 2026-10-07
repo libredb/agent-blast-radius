@@ -58,6 +58,7 @@ export interface RecoveryOutcome {
   readonly attempted: string;
   readonly ok: boolean;
   readonly detail: string;
+  readonly needsRebuild?: boolean;
 }
 
 export interface EngineModule {
@@ -72,8 +73,17 @@ export interface EngineModule {
   reset(): Promise<void>;
   credentials(arms: Arms): Credentials;
   session(creds: Credentials): Promise<Session>;
-  /** Engine-native recovery attempt after damage, no external backup unless the arm is R1. */
-  recover(arms: Arms, before: StateDigest): Promise<RecoveryOutcome[]>;
+  /**
+   * Called right before a mistake (Layer A) or a trial (Layer B) in R1: returns an opaque marker of
+   * "the moment before", e.g. a WAL LSN or a timestamp, that recover() restores to.
+   */
+  recoveryPoint?(arms: Arms): Promise<string | undefined>;
+  /**
+   * Engine-native recovery attempt after damage, no external backup unless the arm is R1. May leave
+   * the engine in a state that needs down()/up()/seed() before the next trial; it says so by
+   * returning `needsRebuild: true` in any outcome.
+   */
+  recover(arms: Arms, before: StateDigest, point?: string): Promise<RecoveryOutcome[]>;
   /**
    * Optional: the LibreDB 0.18.0 connection object (type, host, port, user, password, database...)
    * the list_objects tool uses to inventory this engine as the given identity.

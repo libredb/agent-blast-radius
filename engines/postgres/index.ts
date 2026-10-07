@@ -11,6 +11,10 @@ const APP = { user: "kuzey_app", password: "abr-app-pw" };
 const DB = "kuzey";
 const GOLDEN = "kuzey_golden";
 const SCHEMAS = ["prod", "staging"] as const;
+const VOLUME = "abr-postgres-data";
+const PGDATA = "/var/lib/postgresql/18/docker";
+const ARCHIVE = "/var/lib/postgresql/abr/wal";
+const BASE = "/var/lib/postgresql/abr/base";
 
 function client(database: string, creds: { user?: string; password?: string } = SUPER) {
   return new pg.Client({ host: "127.0.0.1", port: PORT, user: creds.user, password: creds.password, database });
@@ -50,9 +54,11 @@ async function copyRows(c: pg.Client, table: string, rows: Record<string, unknow
 async function startContainer(arms: Arms) {
   const net = await ensureNetwork();
   const image = await imageFor("postgres");
-  const args = ["docker", "run", "-d", "--name", NAME, "--label", `abr.recovery=${arms.recovery}`, "--network", net, "-p", `127.0.0.1:${PORT}:5432`, "-e", `POSTGRES_PASSWORD=${SUPER.password}`, "--shm-size", "256m"];
+  await sh(["docker", "volume", "rm", "-f", VOLUME], { allowFail: true });
+  const args = ["docker", "run", "-d", "--name", NAME, "--label", `abr.recovery=${arms.recovery}`, "--network", net, "-p", `127.0.0.1:${PORT}:5432`, "-e", `POSTGRES_PASSWORD=${SUPER.password}`, "--shm-size", "256m", "-v", `${VOLUME}:/var/lib/postgresql`];
   if (arms.recovery === "R1") {
-    args.push(image, "postgres", "-c", "wal_level=replica", "-c", "archive_mode=on", "-c", "archive_command=test ! -f /var/lib/postgresql/wal-archive/%f && cp %p /var/lib/postgresql/wal-archive/%f");
+    // Vendor minimum for point-in-time recovery: continuous WAL archiving plus a base backup taken after seeding.
+    args.push(image, "postgres", "-c", "wal_level=replica", "-c", "archive_mode=on", "-c", `archive_command=test ! -f ${ARCHIVE}/%f && cp %p ${ARCHIVE}/%f`);
   } else {
     args.push(image);
   }
@@ -101,6 +107,9 @@ export const postgres: EngineModule = {
       await c.query(`ALTER DATABASE ${GOLDEN} WITH ALLOW_CONNECTIONS false IS_TEMPLATE true`);
     });
     await this.reset();
+    if ((await containerLabel(NAME, "abr.recovery")) === "R1") {
+      await sh(["docker", "exec", "-u", "postgres", NAME, "sh", "-c", `rm -rf ${BASE} && mkdir -p ${ARCHIVE} && pg_basebackup -D ${BASE} -X stream -c fast`]);
+    }
   },
 
   async reset() {
@@ -137,7 +146,7 @@ export const postgres: EngineModule = {
       }
       const roles = await c.query(`SELECT rolname || ':' || concat_ws(',', CASE WHEN rolsuper THEN 'super' END, CASE WHEN rolcreaterole THEN 'createrole' END, CASE WHEN rolcreatedb THEN 'createdb' END, CASE WHEN rolcanlogin THEN 'login' END, CASE WHEN rolbypassrls THEN 'bypassrls' END) AS d FROM pg_roles WHERE rolname NOT LIKE 'pg\\_%' ORDER BY 1`);
       const grants = await c.query(`SELECT grantee || ':' || table_schema || '.' || table_name || ':' || string_agg(privilege_type, ',' ORDER BY privilege_type) AS d FROM information_schema.role_table_grants WHERE table_schema IN ('prod','staging') GROUP BY grantee, table_schema, table_name ORDER BY 1`);
-      const settings = await c.query(`SELECT name, setting FROM pg_settings WHERE source NOT IN ('default', 'override', 'client', 'session') ORDER BY name`);
+      const settings = await c.query(`SELECT name, setting FROM pg_settings WHERE source NOT IN ('default', 'override', 'client', 'session') AND name NOT LIKE 'recovery\_%' AND name <> 'restore_command' ORDER BY name`);
       return {
         engine: "postgres",
         takenAt: new Date().toISOString(),
@@ -178,9 +187,38 @@ export const postgres: EngineModule = {
     return { type: "postgres", host: "127.0.0.1", port: PORT, user: creds.user, password: creds.password, database: DB };
   },
 
-  async recover(_arms: Arms, _before: StateDigest): Promise<RecoveryOutcome[]> {
-    // Filled in with the Layer A recovery drills (R0: nothing outside a transaction; R1: PITR from WAL archive).
-    return [{ attempted: "none", ok: false, detail: "recovery drills not implemented yet" }];
+  async recoveryPoint(arms: Arms) {
+    if (arms.recovery !== "R1") return undefined;
+    return withClient("postgres", async (c) => String((await c.query("SELECT pg_current_wal_insert_lsn() AS l")).rows[0].l));
+  },
+
+  async recover(arms: Arms, _before: StateDigest, point?: string): Promise<RecoveryOutcome[]> {
+    if (arms.recovery === "R0") {
+      // Without preparation PostgreSQL offers nothing after commit; an explicit ROLLBACK is part of the mistake itself.
+      return [{ attempted: "none available without preparation", ok: false, detail: "R0: no engine-native undo after commit" }];
+    }
+    if (!point) return [{ attempted: "PITR", ok: false, detail: "no recovery point recorded" }];
+    const t0 = Date.now();
+    await withClient("postgres", (c) => c.query("SELECT pg_switch_wal()"));
+    await Bun.sleep(1500); // let the archiver copy the last segment
+    await sh(["docker", "stop", "-t", "30", NAME]);
+    const script = [
+      `rm -rf /var/lib/postgresql/abr/damaged && mv ${PGDATA} /var/lib/postgresql/abr/damaged`,
+      `cp -a ${BASE} ${PGDATA}`,
+      `cp -a /var/lib/postgresql/abr/damaged/postgresql.conf /var/lib/postgresql/abr/damaged/pg_hba.conf ${PGDATA}/ 2>/dev/null || true`,
+      `touch ${PGDATA}/recovery.signal`,
+      `printf "restore_command = 'cp ${ARCHIVE}/%%f %%p'\nrecovery_target_lsn = '${point}'\nrecovery_target_inclusive = off\nrecovery_target_action = 'promote'\n" >> ${PGDATA}/postgresql.auto.conf`,
+      `chown -R 999:999 ${PGDATA}`,
+    ].join(" && ");
+    const image = await imageFor("postgres");
+    await sh(["docker", "run", "--rm", "--entrypoint", "sh", "-v", `${VOLUME}:/var/lib/postgresql`, image, "-c", script]);
+    await sh(["docker", "start", NAME]);
+    try {
+      await waitFor(async () => withClient("postgres", async (c) => (await c.query("SELECT pg_is_in_recovery() AS r")).rows[0].r === false), "postgres PITR promote", 300_000);
+      return [{ attempted: `PITR to LSN ${point}`, ok: true, detail: `restored in ${Date.now() - t0} ms`, needsRebuild: true }];
+    } catch (e) {
+      return [{ attempted: `PITR to LSN ${point}`, ok: false, detail: String(e), needsRebuild: true }];
+    }
   },
 };
 
