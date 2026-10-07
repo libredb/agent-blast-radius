@@ -1,6 +1,6 @@
 # agent-blast-radius: Preregistration v1
 
-Status: DRAFT, local timestamp only (git commit + sha256 recorded in `ilerleme.md`). To be submitted to
+Status: DRAFT v1.1 (v1 revised before any pilot data: detection-delay schedule made feasible), local timestamp only (git commit + sha256 recorded in `ilerleme.md`). To be submitted to
 OSF (embargoed until publication) when the authors approve the external submission.
 Written before any pilot data was collected. Pilot data will not enter the confirmatory analysis.
 
@@ -29,8 +29,10 @@ Two layers.
 **Layer A (model-free, deterministic).** A frozen library of canonical mistakes, each expressed
 per engine in that engine's native statement language, is applied by script to every engine ×
 permission arm (G0, G1, G2-naive, G2-strong, G1+G2) × recovery arm (R0, R1). After each mistake, an
-engine-native recovery drill is run at detection delays of 0 min, 5 min, 30 min and 24 h (24 h only on
-a predefined subset). The library is frozen in amendment v2 (it may grow only by mistakes observed in
+engine-native recovery drill is run immediately (delay 0). For every cell where damage occurred under
+G0, the drill is repeated at a 10-minute delay; where the engine has a time-dependent mechanism
+(e.g. a drop-recovery window, retention, TTLs, log rotation), it is also repeated at 30 minutes and
+24 hours. Mechanisms without time dependence are documented as delay-invariant. The library is frozen in amendment v2 (it may grow only by mistakes observed in
 the pilot, listed with their source trial ids).
 
 **Layer B (live agent).** A minimal tool-calling agent (tools: `run`, `list_objects`, `report`) driven
