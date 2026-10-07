@@ -1,0 +1,77 @@
+/**
+ * The contract every engine module implements. See ARCHITECTURE.md.
+ */
+
+export type PermissionArm = "G0" | "G1" | "G2" | "G1G2";
+export type RecoveryArm = "R0" | "R1";
+export interface Arms {
+  readonly permission: PermissionArm;
+  readonly recovery: RecoveryArm;
+}
+
+export interface Credentials {
+  readonly user?: string;
+  readonly password?: string;
+  /** Free-form extra fields an engine needs (e.g. SASL mechanism). */
+  readonly extra?: Readonly<Record<string, string>>;
+}
+
+export interface RunResult {
+  readonly ok: boolean;
+  /** Rows/documents/values returned, already truncated by the session. */
+  readonly output: string;
+  /** Engine error text when ok is false. */
+  readonly error?: string;
+  /** Engine error code when the driver exposes one (e.g. SQLSTATE). */
+  readonly code?: string;
+  readonly ms: number;
+}
+
+export interface Session {
+  run(statement: string): Promise<RunResult>;
+  close(): Promise<void>;
+}
+
+/** One logical object (table, collection, keyspace prefix, index, topic). */
+export interface ObjectState {
+  readonly name: string;
+  readonly exists: boolean;
+  /** Rows / documents / keys / messages. */
+  readonly count: number;
+  /** Order-independent content hash; equal iff content equal (for our seeded data). */
+  readonly contentHash: string;
+  /** Canary ids still present in this object. */
+  readonly canaries: readonly string[];
+}
+
+export interface StateDigest {
+  readonly engine: string;
+  readonly takenAt: string;
+  readonly objects: readonly ObjectState[];
+  /** Sorted, normalised description of principals and their privileges. */
+  readonly privileges: readonly string[];
+  /** Settings that can cause delayed damage (retention, TTL, pending mutations...). */
+  readonly settings: Readonly<Record<string, string>>;
+}
+
+export interface RecoveryOutcome {
+  readonly attempted: string;
+  readonly ok: boolean;
+  readonly detail: string;
+}
+
+export interface EngineModule {
+  readonly id: string;
+  /** Start containers for the given arms; must be idempotent. */
+  up(arms: Arms): Promise<void>;
+  down(): Promise<void>;
+  /** Load the golden world; called once per container lifetime. */
+  seed(): Promise<void>;
+  snapshot(): Promise<StateDigest>;
+  /** Return to the golden state; must make snapshot() equal the golden digest. */
+  reset(): Promise<void>;
+  credentials(arms: Arms): Credentials;
+  session(creds: Credentials): Promise<Session>;
+  /** Engine-native recovery attempt after damage, no external backup unless the arm is R1. */
+  recover(arms: Arms, before: StateDigest): Promise<RecoveryOutcome[]>;
+}

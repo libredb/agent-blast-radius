@@ -1,0 +1,12 @@
+{
+  "compilerOptions": {
+    "target": "ES2023",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "skipLibCheck": true,
+    "types": ["bun-types"],
+    "noEmit": true
+  },
+  "include": ["src", "engines", "layer-a", "layer-b", "tests", "scripts"]
+}

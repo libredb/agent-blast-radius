@@ -1,0 +1,12 @@
+# engine	image:tag	tier
+postgres	postgres:18	core
+mysql	mysql:9.7	core
+mongodb	mongo:9.0	core
+valkey	valkey/valkey:9.1	core
+kafka	apache/kafka:4.3.1	core
+opensearch	opensearchproject/opensearch:3.9.0	core
+clickhouse	clickhouse/clickhouse-server:26.8	core
+cassandra	cassandra:5.0.9	core
+mariadb	mariadb:lts	extra
+redis	redis:8	extra
+elasticsearch	docker.elastic.co/elasticsearch/elasticsearch:9.5.5	extra
