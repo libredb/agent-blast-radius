@@ -1,5 +1,5 @@
 import pg from "pg";
-import { containerRunning, ensureNetwork, imageFor, removeContainer, sh, waitFor } from "../../src/docker";
+import { containerLabel, containerRunning, ensureNetwork, imageFor, removeContainer, sh, waitFor } from "../../src/docker";
 import type { Arms, Credentials, EngineModule, ObjectState, RecoveryOutcome, RunResult, Session, StateDigest } from "../../src/engine";
 import { TABLES, world } from "../../src/world";
 import { truncateOutput } from "../../src/output";
@@ -50,7 +50,7 @@ async function copyRows(c: pg.Client, table: string, rows: Record<string, unknow
 async function startContainer(arms: Arms) {
   const net = await ensureNetwork();
   const image = await imageFor("postgres");
-  const args = ["docker", "run", "-d", "--name", NAME, "--network", net, "-p", `127.0.0.1:${PORT}:5432`, "-e", `POSTGRES_PASSWORD=${SUPER.password}`, "--shm-size", "256m"];
+  const args = ["docker", "run", "-d", "--name", NAME, "--label", `abr.recovery=${arms.recovery}`, "--network", net, "-p", `127.0.0.1:${PORT}:5432`, "-e", `POSTGRES_PASSWORD=${SUPER.password}`, "--shm-size", "256m"];
   if (arms.recovery === "R1") {
     args.push(image, "postgres", "-c", "wal_level=replica", "-c", "archive_mode=on", "-c", "archive_command=test ! -f /var/lib/postgresql/wal-archive/%f && cp %p /var/lib/postgresql/wal-archive/%f");
   } else {
@@ -65,7 +65,7 @@ export const postgres: EngineModule = {
   id: "postgres",
 
   async up(arms) {
-    if (currentArms && currentArms.recovery === arms.recovery && (await containerRunning(NAME))) {
+    if ((await containerRunning(NAME)) && (await containerLabel(NAME, "abr.recovery")) === arms.recovery) {
       currentArms = arms;
       return;
     }
@@ -172,6 +172,10 @@ export const postgres: EngineModule = {
         await c.end().catch(() => {});
       },
     };
+  },
+
+  libredbConnection(creds: Credentials) {
+    return { type: "postgres", host: "127.0.0.1", port: PORT, user: creds.user, password: creds.password, database: DB };
   },
 
   async recover(_arms: Arms, _before: StateDigest): Promise<RecoveryOutcome[]> {

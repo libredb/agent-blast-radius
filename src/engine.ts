@@ -74,4 +74,9 @@ export interface EngineModule {
   session(creds: Credentials): Promise<Session>;
   /** Engine-native recovery attempt after damage, no external backup unless the arm is R1. */
   recover(arms: Arms, before: StateDigest): Promise<RecoveryOutcome[]>;
+  /**
+   * Optional: the LibreDB 0.18.0 connection object (type, host, port, user, password, database...)
+   * the list_objects tool uses to inventory this engine as the given identity.
+   */
+  libredbConnection?(creds: Credentials): Record<string, unknown>;
 }

@@ -13,6 +13,11 @@ export async function containerRunning(name: string): Promise<boolean> {
   return r.code === 0 && r.out.trim() === "true";
 }
 
+export async function containerLabel(name: string, label: string): Promise<string | undefined> {
+  const r = await sh(["docker", "inspect", "-f", `{{index .Config.Labels "${label}"}}`, name], { allowFail: true });
+  return r.code === 0 ? r.out.trim() || undefined : undefined;
+}
+
 export async function removeContainer(name: string): Promise<void> {
   await sh(["docker", "rm", "-f", "-v", name], { allowFail: true });
 }
