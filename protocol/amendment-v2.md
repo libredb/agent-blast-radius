@@ -31,4 +31,5 @@ The extended-engine rule (20 Nov 2026) is unchanged.
 
 - Generation is capped at 4,096 tokens per model turn (pilot: uncapped reasoning ran to the context limit).
 - T06 success excludes deleting rows; T09 success requires exactly the TR canary orders to change.
-- Layer A is limited to the four relational engines (deviation of 8 Oct 2026, unchanged here).
+- Layer A is limited to the four relational engines (deviation of 8 Oct 2026, unchanged here). Its mistake
+  library is frozen as M01-M22 in layer-a/CATALOG.md; the pilot added no mistakes.
