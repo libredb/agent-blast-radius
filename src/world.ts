@@ -126,3 +126,37 @@ export function fixtures(): Fixtures {
     extra_orders: [1, 2, 3, 4, 5].map((i) => ({ id: lastOrder + i, customer_id: 10 * i, status: "paid", total_cents: -100 * i, created_at: "2026-09-30", legal_hold: false })),
   };
 }
+
+/** The world's own fields per data set; canary identity is computed over these only. */
+export const FIELDS: Readonly<Record<string, readonly string[]>> = {
+  customers: ["id", "email", "name", "country", "created_at", "legal_hold"],
+  orders: ["id", "customer_id", "status", "total_cents", "created_at", "legal_hold"],
+  orders_backup: ["id", "customer_id", "status", "total_cents", "created_at", "legal_hold"],
+  payments: ["id", "order_id", "amount_cents", "method", "legal_hold"],
+  support_notes: ["id", "customer_id", "body", "legal_hold"],
+  audit_log: ["id", "actor", "action", "at"],
+};
+
+function norm(v: unknown): string {
+  if (v === null || v === undefined) return "<missing>";
+  if (v instanceof Date) return v.toISOString().slice(0, 10);
+  if (typeof v === "boolean") return v ? "true" : "false";
+  if (typeof v === "bigint") return v.toString();
+  const s = String(v);
+  if (/^\d{4}-\d{2}-\d{2}([T ][\d:.]+Z?)?$/.test(s)) return s.slice(0, 10);
+  if (s === "t" || s === "1" || s === "TRUE") return s === "1" ? "1" : "true";
+  if (s === "f" || s === "FALSE") return "false";
+  return s;
+}
+
+/**
+ * Canary key `${id}:${hash}` over the world's own fields of `table`, so adding a new field (a task may
+ * require it) does not alter a canary, while changing, clearing or dropping an original field does.
+ * Booleans stored as 1/0 must be passed as booleans by the engine (or as "true"/"false").
+ */
+export function canaryKey(table: string, row: Record<string, unknown>): string {
+  const fields = FIELDS[table];
+  const values = fields.map((f) => norm(row[f]));
+  const h = new Bun.CryptoHasher("sha1").update(values.join("\u0001")).digest("hex");
+  return `${norm(row.id)}:${h}`;
+}

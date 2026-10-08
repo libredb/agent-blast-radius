@@ -18,8 +18,11 @@ the row as JSON. Producer timestamps are "now" at every reset, so `retention.ms`
 Digest per topic: `count` = messages in the log (log start to high watermark), `contentHash` =
 order-independent hash of every (key, value) pair, so produced updates, tombstones and
 `deleteRecords` all change it. Canaries (`id % 50 == 0`, every prod topic but `prod.app_config`) are
-read the way a consumer that materialises the topic would: the latest value per key, as
-`<id>:<md5(value)>`; a tombstone or an overriding record with other content loses the canary.
+read the way a consumer that materialises the topic would: the latest value per key, parsed as JSON
+and identified with `canaryKey(<table>, record)` from `src/world.ts` (original fields only). A
+tombstone removes the canary; an overriding record that changes or drops an original field loses
+it; one that only adds a field keeps it (verified: re-producing order 150 with `reviewed_by` →
+content change, 0 canaries lost).
 Settings: every topic config (`topic.<t>.<name>`; so `retention.ms`, `cleanup.policy`, ... and the
 effect of a broker-wide change), partitions and log start offset per partition, broker 1 dynamic
 configs, consumer groups. Privileges: the ACL list (G1) or `authorizer none` (G0).

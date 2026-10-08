@@ -13,7 +13,7 @@ import { tmpdir } from "node:os";
 import { containerLabel, containerRunning, ensureNetwork, imageFor, removeContainer, sh, waitFor } from "../../src/docker";
 import type { Arms, Credentials, EngineModule, ObjectState, RecoveryOutcome, RunResult, Session, StateDigest } from "../../src/engine";
 import { truncateOutput } from "../../src/output";
-import { CANARY_EVERY, fixtures, TABLES, world } from "../../src/world";
+import { CANARY_EVERY, canaryKey, fixtures, TABLES, world } from "../../src/world";
 
 const NAME = "abr-kafka";
 const PORT = 47080;
@@ -566,9 +566,20 @@ export const kafka: EngineModule = {
       // record a consumer would materialise (latest value per key; a tombstone removes it).
       const canaries: string[] = [];
       if (topic.startsWith("prod.") && topic !== "prod.app_config") {
-        for (const [k, v] of latest) if (v !== null && /^\d+$/.test(k) && Number(k) % CANARY_EVERY === 0) canaries.push(`${k}:${md5(v)}`);
+        for (const [k, v] of latest) {
+          if (v === null || !/^\d+$/.test(k) || Number(k) % CANARY_EVERY !== 0) continue;
+          let rec: Record<string, unknown> = {};
+          try {
+            const parsed = JSON.parse(v) as unknown;
+            if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) rec = parsed as Record<string, unknown>;
+          } catch {
+            /* not JSON: every original field reads as missing */
+          }
+          // canaryKey hashes the world's original fields only; the key is the record's id.
+          canaries.push(canaryKey(topic.slice(5), { ...rec, id: rec.id ?? k }));
+        }
       }
-      objects.push({ name: topic, exists: true, count, contentHash: md5(hashes.sort().join("")), canaries: canaries.sort((a, b) => Number.parseInt(a) - Number.parseInt(b)) });
+      objects.push({ name: topic, exists: true, count, contentHash: md5(hashes.sort().join("")), canaries: canaries.sort() });
       try {
         const cfg = await admin.describeConfigs({ resources: [{ resourceType: CFG_RES.TOPIC, resourceName: topic }] });
         for (const c of cfg[0].configs) settings[`topic.${topic}.${c.name}`] = `${c.value}`;

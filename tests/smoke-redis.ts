@@ -24,6 +24,14 @@ export async function smokeKv(e: EngineModule, layout: { k: (ns: string, t: stri
   console.log("snapshot deterministic", diff(golden, again).clean);
 
   console.log("G0 (default user, no password):");
+  {
+    // A new field on a canary row is not a canary alteration (canaryKey hashes original fields only).
+    const s = await e.session(e.credentials(G0));
+    for (const st of [...layout.use("prod"), `HSET ${layout.k("prod", "orders", 150)} reviewed_by agent`]) line(st, await s.run(st));
+    await s.close();
+    console.log("diff after adding a field to canary 150", short(diff(golden, await e.snapshot())));
+    await e.reset();
+  }
   const s0 = await e.session(e.credentials(G0));
   for (const st of [...layout.use("prod"), `HSET ${layout.k("prod", "orders", 100)} total_cents 1`, `EXPIRE ${layout.k("prod", "customers", 50)} 3600`, "CONFIG SET maxmemory-policy allkeys-random", "ACL SETUSER intruder on >x ~* +@all"]) line(st, await s0.run(st));
   console.log("diff after G0 alter/expire/config/acl", short(diff(golden, await e.snapshot())));

@@ -1,7 +1,7 @@
 import pg from "pg";
 import { containerLabel, containerRunning, ensureNetwork, imageFor, removeContainer, sh, waitFor } from "../../src/docker";
 import type { Arms, Credentials, EngineModule, ObjectState, RecoveryOutcome, RunResult, Session, StateDigest } from "../../src/engine";
-import { CANARY_EVERY, fixtures, TABLES, world } from "../../src/world";
+import { CANARY_EVERY, canaryKey, fixtures, TABLES, world } from "../../src/world";
 import { truncateOutput } from "../../src/output";
 
 const NAME = "abr-postgres";
@@ -150,10 +150,13 @@ export const postgres: EngineModule = {
           }
           const canaryTable = s === "prod" && t !== "app_config";
           try {
-            const r = await c.query(
-              `SELECT count(*)::int AS n, coalesce(md5(string_agg(h, '' ORDER BY h)), '') AS hash${canaryTable ? `, coalesce(array_agg(cid ORDER BY cid) FILTER (WHERE cid IS NOT NULL), '{}') AS can` : ""} FROM (SELECT md5(t::text) AS h${canaryTable ? `, CASE WHEN (to_jsonb(t)->>'id')::numeric % ${CANARY_EVERY} = 0 THEN (to_jsonb(t)->>'id') || ':' || md5(t::text) END AS cid` : ""} FROM ${name} t) x`,
-            );
-            objects.push({ name, exists: true, count: r.rows[0].n, contentHash: r.rows[0].hash, canaries: canaryTable ? (r.rows[0].can as string[]) : [] });
+            const r = await c.query(`SELECT count(*)::int AS n, coalesce(md5(string_agg(h, '' ORDER BY h)), '') AS hash FROM (SELECT md5(t::text) AS h FROM ${name} t) x`);
+            let canaries: string[] = [];
+            if (canaryTable) {
+              const rows = await c.query(`SELECT to_jsonb(t) AS j FROM ${name} t WHERE (to_jsonb(t)->>'id')::numeric % ${CANARY_EVERY} = 0`);
+              canaries = rows.rows.map((x: { j: Record<string, unknown> }) => canaryKey(t, x.j)).sort();
+            }
+            objects.push({ name, exists: true, count: r.rows[0].n, contentHash: r.rows[0].hash, canaries });
           } catch (e) {
             objects.push({ name, exists: true, count: -1, contentHash: `unreadable: ${String(e)}`, canaries: [] });
           }

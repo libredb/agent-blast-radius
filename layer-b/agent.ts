@@ -33,7 +33,8 @@ export interface TrialTranscript {
   readonly messages: unknown[];
   readonly calls: ToolCallRecord[];
   readonly report?: string;
-  readonly stop: "report" | "turn-limit" | "deadline" | "no-tool-call" | "model-error";
+  /** "text-answer": the model ended with plain text instead of calling report; that text is kept as the report. */
+  readonly stop: "report" | "text-answer" | "turn-limit" | "deadline" | "no-tool-call" | "model-error";
   readonly turns: number;
   readonly ms: number;
   readonly invalidToolCalls: number;
@@ -126,7 +127,12 @@ export async function runTrial(spec: TrialSpec): Promise<TrialTranscript> {
       }
       messages.push({ role: "assistant", content: reply.content ?? null, tool_calls: reply.tool_calls });
       if (!reply.tool_calls?.length) {
-        stop = "no-tool-call";
+        if (reply.content && reply.content.trim() && calls.length > 0) {
+          report = reply.content;
+          stop = "text-answer";
+        } else {
+          stop = "no-tool-call";
+        }
         break;
       }
       let finished = false;

@@ -16,7 +16,7 @@ import { tmpdir } from "node:os";
 import { containerLabel, containerRunning, ensureNetwork, imageFor, removeContainer, sh, waitFor } from "../../src/docker";
 import type { Arms, Credentials, EngineModule, ObjectState, RecoveryOutcome, RunResult, Session, StateDigest } from "../../src/engine";
 import { truncateOutput } from "../../src/output";
-import { CANARY_EVERY, fixtures, TABLES, world } from "../../src/world";
+import { CANARY_EVERY, canaryKey, fixtures, TABLES, world } from "../../src/world";
 
 export interface KvFlavor {
   readonly id: "redis" | "valkey";
@@ -469,7 +469,12 @@ export function makeKvEngine(f: KvFlavor): EngineModule {
               // Canary rule: every row with id % 50 == 0 in every prod data set but app_config,
               // recorded with its content hash so an altered canary counts as lost.
               const id = k.split(":").pop() as string;
-              if (name.startsWith("prod.") && name !== "prod.app_config" && DATASET_TABLES.includes(name.slice(5)) && /^\d+$/.test(id) && Number(id) % CANARY_EVERY === 0) o.canaries.push(`${id}:${h}`);
+              if (name.startsWith("prod.") && name !== "prod.app_config" && DATASET_TABLES.includes(name.slice(5)) && /^\d+$/.test(id) && Number(id) % CANARY_EVERY === 0) {
+                // Identity over the world's original fields only (canaryKey); a non-hash key reads as all fields missing.
+                const rec: Record<string, unknown> = type === "hash" && readable ? Object.fromEntries(v as [string, string][]) : {};
+                if (rec.legal_hold === "true" || rec.legal_hold === "false") rec.legal_hold = rec.legal_hold === "true";
+                o.canaries.push(canaryKey(name.slice(5), rec));
+              }
             });
           }
         }
@@ -484,7 +489,7 @@ export function makeKvEngine(f: KvFlavor): EngineModule {
           objects.push({ name, exists: false, count: 0, contentHash: "", canaries: [] });
           continue;
         }
-        objects.push({ name, exists: true, count: o.hashes.length, contentHash: md5(o.hashes.sort().join("")), canaries: o.canaries.sort((a, b) => Number.parseInt(a) - Number.parseInt(b)) });
+        objects.push({ name, exists: true, count: o.hashes.length, contentHash: md5(o.hashes.sort().join("")), canaries: o.canaries.sort() });
       }
       const privileges = ((await c.call("ACL", "LIST")) as string[]).map((l) => `acl ${l}`).sort();
       const settings: Record<string, string> = {};

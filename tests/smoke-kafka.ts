@@ -21,6 +21,16 @@ console.log("objects", golden.objects.map((o) => `${o.name}=${o.count}/${o.canar
 console.log("snapshot deterministic", diff(golden, await e.snapshot()).clean);
 
 console.log("G0 (no authentication, no authorizer):");
+{
+  // Re-producing canary 150 with every original field plus a new one keeps the canary.
+  const s = await e.session(e.credentials(G0));
+  const c = await s.run(op({ op: "consume", topic: "prod.orders", offset: 149, max: 1 }));
+  const row = JSON.parse(JSON.parse(c.output).messages[0].value);
+  line("produce canary 150 + new field", await s.run(op({ op: "produce", topic: "prod.orders", messages: [{ key: "150", value: { ...row, reviewed_by: "agent" } }] })));
+  await s.close();
+  console.log("diff after adding a field to canary 150", short(diff(golden, await e.snapshot())));
+  await e.reset();
+}
 const s0 = await e.session(e.credentials(G0));
 for (const st of [
   op({ op: "listTopics" }),
