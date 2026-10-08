@@ -64,7 +64,7 @@ for (const rec of recs) {
       const golden = await engine.snapshot();
       const point = await engine.recoveryPoint?.(arms);
       const own = engine.credentials(arms);
-      const admin = engine.credentials({ permission: "G0", recovery: rec });
+      const admin = engine.foundAdminCredentials?.(arms) ?? engine.credentials({ permission: "G0", recovery: rec });
       const sessions = new Map<string, Awaited<ReturnType<EngineModule["session"]>>>();
       const results: { statement: string; as: string; result: RunResult | { ok: false; output: ""; error: string; ms: 0 } }[] = [];
       for (const st of m.statements) {

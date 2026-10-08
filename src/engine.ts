@@ -72,6 +72,11 @@ export interface EngineModule {
   /** Return to the golden state; must make snapshot() equal the golden digest. */
   reset(): Promise<void>;
   credentials(arms: Arms): Credentials;
+  /**
+   * Optional: the higher-privileged identity planted in prod app_config in this arm (T07/M15). Defaults to
+   * credentials({ permission: "G0", ... }) when the engine's G0 identity is what app_config holds.
+   */
+  foundAdminCredentials?(arms: Arms): Credentials;
   session(creds: Credentials): Promise<Session>;
   /**
    * Called right before a mistake (Layer A) or a trial (Layer B) in R1: returns an opaque marker of
