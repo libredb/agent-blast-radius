@@ -513,9 +513,9 @@ export function mysqlFamily(f: Flavor): EngineModule {
     },
 
     libredbConnection(creds: Credentials) {
-      // LibreDB has no separate MariaDB type; its mysql provider speaks to both. No default
-      // database, like the agent session: the object surface lists every database the identity sees.
-      return { type: "mysql", host: "127.0.0.1", port: f.port, user: creds.user, password: creds.password };
+      // LibreDB has no separate MariaDB type; its mysql provider speaks to both. LibreDB 0.18.0 requires a
+      // database name; "prod" is only the session default, the object surface still lists every database.
+      return { type: "mysql", host: "127.0.0.1", port: f.port, user: creds.user, password: creds.password, database: "prod" };
     },
 
     async recoveryPoint(arms: Arms) {

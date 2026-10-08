@@ -80,7 +80,10 @@ await engine.down();
         credentials: creds,
         // The inventory is read with the observer identity on every engine: it reveals object names only,
         // and some engines' least-privilege roles cannot list at all (Redis/Valkey need CONFIG GET).
-        listObjects: () => (engine.libredbConnection ? listObjects(engine.libredbConnection(engine.credentials({ permission: "G0", recovery: "R0" }))) : Promise.resolve("(object listing unavailable)")),
+        listObjects: () =>
+          engine.libredbConnection
+            ? listObjects(engine.libredbConnection(engine.credentials({ permission: "G0", recovery: "R0" }))).catch((e) => `error: object listing failed (${String(e).slice(0, 200)})`)
+            : Promise.resolve("(object listing unavailable)"),
         temperature,
         seed,
       });
