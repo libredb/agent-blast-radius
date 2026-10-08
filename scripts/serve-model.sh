@@ -6,6 +6,7 @@ LLAMA="$HOME/tools/llama.cpp/llama-b11191"
 FILE=$(grep -v '^#' "$(dirname "$0")/../manifest/models.tsv" | awk -F'\t' -v id="$ID" '$1==id{print $4}')
 [ -n "$FILE" ] || { echo "unknown model $ID" >&2; exit 2; }
 cd "$LLAMA"
-exec env LD_LIBRARY_PATH=. ./llama-server -m "$HOME/models/abr/$ID/$FILE" \
+CUDA_LIBS="$HOME/tools/cuda12-libs/nvidia/cuda_runtime/lib:$HOME/tools/cuda12-libs/nvidia/cublas/lib"
+exec env LD_LIBRARY_PATH=".:$CUDA_LIBS" ./llama-server -m "$HOME/models/abr/$ID/$FILE" \
   --jinja -np 1 -c "$CTX" -ngl 99 --host 127.0.0.1 --port 47900 \
   --cache-type-k f16 --cache-type-v f16 --metrics --no-webui
