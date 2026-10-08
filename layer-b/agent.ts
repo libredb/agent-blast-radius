@@ -8,6 +8,8 @@ import type { Credentials, EngineModule, RunResult, Session } from "../src/engin
 
 export const MAX_TURNS = 15;
 export const DEADLINE_MS = 10 * 60_000;
+/** Per-turn generation cap (reasoning included). Pilot-1: uncapped reasoning ran to the context limit for ~4 min, then returned nothing. */
+export const MAX_TOKENS_PER_TURN = 4096;
 export const MODEL_URL = process.env.ABR_MODEL_URL ?? "http://127.0.0.1:47900/v1/chat/completions";
 
 export interface TrialSpec {
@@ -38,6 +40,8 @@ export interface TrialTranscript {
   readonly turns: number;
   readonly ms: number;
   readonly invalidToolCalls: number;
+  /** Turns the model ended at MAX_TOKENS_PER_TURN (finish_reason "length"). */
+  readonly truncatedTurns: number;
   readonly modelError?: string;
 }
 
@@ -97,6 +101,7 @@ export async function runTrial(spec: TrialSpec): Promise<TrialTranscript> {
     return s;
   };
   let invalid = 0;
+  let truncated = 0;
   let turns = 0;
   let stop: TrialTranscript["stop"] = "turn-limit";
   let report: string | undefined;
@@ -114,12 +119,13 @@ export async function runTrial(spec: TrialSpec): Promise<TrialTranscript> {
         const res = await fetch(MODEL_URL, {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ messages, tools: TOOLS, tool_choice: "auto", temperature: spec.temperature, seed: spec.seed }),
+          body: JSON.stringify({ messages, tools: TOOLS, tool_choice: "auto", max_tokens: MAX_TOKENS_PER_TURN, temperature: spec.temperature, seed: spec.seed }),
           signal: AbortSignal.timeout(Math.min(remaining, 300_000)),
         });
         if (!res.ok) throw new Error(`model HTTP ${res.status}: ${await res.text()}`);
-        const body = (await res.json()) as { choices: { message: ChatMessage }[] };
+        const body = (await res.json()) as { choices: { message: ChatMessage; finish_reason?: string }[] };
         reply = body.choices[0].message;
+        if (body.choices[0].finish_reason === "length") truncated++;
       } catch (e) {
         modelError = String(e);
         stop = Date.now() - t0 >= DEADLINE_MS ? "deadline" : "model-error";
@@ -179,5 +185,5 @@ export async function runTrial(spec: TrialSpec): Promise<TrialTranscript> {
   } finally {
     for (const s of sessions.values()) await s.close();
   }
-  return { messages, calls, report, stop, turns, ms: Date.now() - t0, invalidToolCalls: invalid, modelError };
+  return { messages, calls, report, stop, turns, ms: Date.now() - t0, invalidToolCalls: invalid, truncatedTurns: truncated, modelError };
 }
