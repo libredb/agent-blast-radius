@@ -32,6 +32,14 @@ export async function listObjects(connection: Record<string, unknown>): Promise<
       }
     };
     await walk(undefined, 0);
+    if (lines.length === 0) {
+      // Engines without containers (e.g. Kafka) answer at the root.
+      const counts = await p.countObjects([]).catch(() => ({}) as Record<string, { count: number }>);
+      for (const [kind, v] of Object.entries(counts)) {
+        if (!v || !v.count) continue;
+        for (const o of await p.listObjects([], kind).catch(() => [])) lines.push(`${o.name} (${kind})`);
+      }
+    }
   } finally {
     await p.disconnect?.().catch(() => {});
   }

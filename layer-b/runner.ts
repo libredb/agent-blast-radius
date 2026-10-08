@@ -45,6 +45,7 @@ await engine.down();
   for (const arm of armList) {
     if (engineId === "sqlite" && arm === "G1") continue;
     const arms: Arms = { permission: arm, recovery: "R0" };
+    up = false; // each arm brings its own identity setup (ACLs, users, or a separate container)
     // Blocks are randomised by a fixed permutation so arm/task order is not confounded with time.
     const trials = TASKS.filter((t) => taskIds.includes(t.id) && t.arms.includes(arm)).flatMap((t) => paraphrases.flatMap((p) => seeds.map((seed) => ({ t, p, seed }))));
     trials.sort((a, b) => hash(`${a.t.id}${a.p}${a.seed}${arm}`) - hash(`${b.t.id}${b.p}${b.seed}${arm}`));
@@ -75,7 +76,9 @@ await engine.down();
         user,
         engine,
         credentials: creds,
-        listObjects: () => (engine.libredbConnection ? listObjects(engine.libredbConnection(creds)) : Promise.resolve("(object listing unavailable)")),
+        // The inventory is read with the observer identity on every engine: it reveals object names only,
+        // and some engines' least-privilege roles cannot list at all (Redis/Valkey need CONFIG GET).
+        listObjects: () => (engine.libredbConnection ? listObjects(engine.libredbConnection(engine.credentials({ permission: "G0", recovery: "R0" }))) : Promise.resolve("(object listing unavailable)")),
         temperature,
         seed,
       });
