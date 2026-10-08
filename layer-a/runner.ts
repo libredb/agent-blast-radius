@@ -33,6 +33,8 @@ const delayMs = Number(arg("delay-ms", "0"));
 const runId = arg("run", `layer-a-${new Date().toISOString().slice(0, 10)}`);
 
 const engine = (await import(`../engines/${engineId}/index.ts`)).default as EngineModule;
+// A container left over from a crashed run may carry damage that seed() would capture as golden.
+await engine.down();
 const mistakes = (await import(`./mistakes/${engineId}.ts`)).default as MistakeSet;
 const dir = new URL(`../runs/${runId}/${engineId}/`, import.meta.url).pathname;
 await mkdir(dir, { recursive: true });

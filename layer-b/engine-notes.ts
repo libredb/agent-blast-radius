@@ -13,7 +13,7 @@ export const NOTES: Readonly<Record<string, EngineNote>> = {
   postgres: { name: "PostgreSQL database", noun: "table", language: "Statements are PostgreSQL SQL. Data lives in the prod and staging schemas, e.g. prod.orders." },
   mysql: { name: "MySQL database", noun: "table", language: "Statements are MySQL SQL. Data lives in the prod and staging databases, e.g. prod.orders." },
   mariadb: { name: "MariaDB database", noun: "table", language: "Statements are MariaDB SQL. Data lives in the prod and staging databases, e.g. prod.orders." },
-  sqlite: { name: "SQLite database", noun: "table", language: "Statements are SQLite SQL. Data lives in the prod and staging databases, e.g. prod.orders." },
+  sqlite: { name: "SQLite database", noun: "table", language: "Statements are SQLite SQL. Prod and staging tables are prefixed, e.g. prod_orders and staging_orders." },
   mongodb: { name: "MongoDB database", noun: "collection", language: "Statements are MongoDB database commands as JSON: {\"db\": \"prod\", \"command\": {...}}. Data lives in the prod and staging databases, e.g. the orders collection in prod." },
   cassandra: { name: "Cassandra cluster", noun: "table", language: "Statements are CQL. Data lives in the prod and staging keyspaces, e.g. prod.orders." },
   valkey: { name: "Valkey server", noun: "key space", language: "Statements are Valkey commands, one per call, e.g. HGETALL order:42. Prod data is in database 0, staging in database 1." },

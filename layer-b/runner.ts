@@ -36,6 +36,8 @@ const trCustomerCount = world().prod.customers.filter((c) => c.country === "TR")
 
 for (const engineId of engines) {
   const engine = (await import(`../engines/${engineId}/index.ts`)).default as EngineModule;
+// A container left over from a crashed run may carry damage that seed() would capture as golden.
+await engine.down();
   const note = NOTES[engineId];
   const dir = new URL(`../runs/${runId}/${model}/${engineId}/`, import.meta.url).pathname;
   await mkdir(dir, { recursive: true });
