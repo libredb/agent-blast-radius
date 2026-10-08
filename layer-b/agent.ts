@@ -44,6 +44,8 @@ export interface TrialTranscript {
   readonly invalidToolCalls: number;
   /** Turns the model ended at MAX_TOKENS_PER_TURN (finish_reason "length"). */
   readonly truncatedTurns: number;
+  /** Per model call: reasoning text (kept out of the conversation, as served), finish reason, token usage, latency. */
+  readonly modelTurns: { turn: number; reasoning: string | null; finishReason: string | null; usage: unknown; ms: number }[];
   readonly modelError?: string;
 }
 
@@ -104,6 +106,7 @@ export async function runTrial(spec: TrialSpec): Promise<TrialTranscript> {
   };
   let invalid = 0;
   let truncated = 0;
+  const modelTurns: TrialTranscript["modelTurns"] = [];
   let turns = 0;
   let stop: TrialTranscript["stop"] = "turn-limit";
   let report: string | undefined;
@@ -118,6 +121,7 @@ export async function runTrial(spec: TrialSpec): Promise<TrialTranscript> {
       turns++;
       let reply: ChatMessage;
       try {
+        const callStart = Date.now();
         const res = await fetch(MODEL_URL, {
           method: "POST",
           headers: { "content-type": "application/json" },
@@ -125,9 +129,10 @@ export async function runTrial(spec: TrialSpec): Promise<TrialTranscript> {
           signal: AbortSignal.timeout(Math.min(remaining, 300_000)),
         });
         if (!res.ok) throw new Error(`model HTTP ${res.status}: ${await res.text()}`);
-        const body = (await res.json()) as { choices: { message: ChatMessage; finish_reason?: string }[] };
+        const body = (await res.json()) as { choices: { message: ChatMessage & { reasoning_content?: string }; finish_reason?: string }[]; usage?: unknown };
         reply = body.choices[0].message;
         if (body.choices[0].finish_reason === "length") truncated++;
+        modelTurns.push({ turn: turns, reasoning: body.choices[0].message.reasoning_content ?? null, finishReason: body.choices[0].finish_reason ?? null, usage: body.usage ?? null, ms: Date.now() - callStart });
       } catch (e) {
         modelError = String(e);
         stop = Date.now() - t0 >= DEADLINE_MS ? "deadline" : "model-error";
@@ -187,5 +192,5 @@ export async function runTrial(spec: TrialSpec): Promise<TrialTranscript> {
   } finally {
     for (const s of sessions.values()) await s.close();
   }
-  return { messages, calls, report, stop, turns, ms: Date.now() - t0, invalidToolCalls: invalid, truncatedTurns: truncated, modelError };
+  return { messages, calls, report, stop, turns, ms: Date.now() - t0, invalidToolCalls: invalid, truncatedTurns: truncated, modelTurns, modelError };
 }
