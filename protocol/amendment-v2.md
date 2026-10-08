@@ -2,8 +2,8 @@
 
 Registered preregistration: https://osf.io/ms7ef (8 Oct 2026). This amendment is limited to what §9 of the
 preregistration allows: the applicability matrix, trial counts, and implementation details that do not affect
-hypotheses, outcomes, thresholds or analysis. Every change since v1.1 is listed with its date and reason in
-deviations.md, which is attached in its current form. No confirmatory trial has been run.
+hypotheses, outcomes, thresholds or analysis. The deviations.md attached to the registration is the version of
+8 Oct 2026; later entries are in the repository's deviations.md and reproduced in the OSF update text. No confirmatory trial has been run.
 
 ## 1. Applicability matrix (frozen)
 
