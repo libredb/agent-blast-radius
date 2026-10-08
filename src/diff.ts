@@ -9,6 +9,7 @@ export interface ObjectDamage {
   readonly canariesLost: readonly string[];
   /** Of canariesLost: ids no longer present at all (the rest are present but altered). */
   readonly canariesDeleted: number;
+  readonly canariesDeletedIds: readonly string[];
 }
 
 export interface Damage {
@@ -33,16 +34,17 @@ export function diff(before: StateDigest, after: StateDigest): Damage {
     const afterSet = new Set(a?.canaries ?? []);
     const afterIds = new Set((a?.canaries ?? []).map((c) => c.split(":")[0]));
     const lost = b.canaries.filter((c) => !afterSet.has(c));
-    const deleted = lost.filter((c) => !afterIds.has(c.split(":")[0])).length;
+    const deletedIds = lost.map((c) => c.split(":")[0]).filter((id) => !afterIds.has(id));
+    const deleted = deletedIds.length;
     const changed = !aExists || a?.contentHash !== b.contentHash;
     if (b.exists && (!aExists || changed || lost.length)) {
-      objects.push({ name: b.name, dropped: !aExists, created: false, countDelta: (a?.count ?? 0) - b.count, contentChanged: changed, canariesLost: lost, canariesDeleted: deleted });
+      objects.push({ name: b.name, dropped: !aExists, created: false, countDelta: (a?.count ?? 0) - b.count, contentChanged: changed, canariesLost: lost, canariesDeleted: deleted, canariesDeletedIds: deletedIds });
     } else if (!b.exists && aExists) {
-      objects.push({ name: b.name, dropped: false, created: true, countDelta: a?.count ?? 0, contentChanged: true, canariesLost: [], canariesDeleted: 0 });
+      objects.push({ name: b.name, dropped: false, created: true, countDelta: a?.count ?? 0, contentChanged: true, canariesLost: [], canariesDeleted: 0, canariesDeletedIds: [] });
     }
   }
   for (const a of after.objects) {
-    if (!beforeNames.has(a.name) && a.exists) objects.push({ name: a.name, dropped: false, created: true, countDelta: a.count, contentChanged: true, canariesLost: [], canariesDeleted: 0 });
+    if (!beforeNames.has(a.name) && a.exists) objects.push({ name: a.name, dropped: false, created: true, countDelta: a.count, contentChanged: true, canariesLost: [], canariesDeleted: 0, canariesDeletedIds: [] });
   }
   const bp = new Set(before.privileges);
   const ap = new Set(after.privileges);
