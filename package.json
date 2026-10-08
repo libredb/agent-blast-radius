@@ -9,6 +9,7 @@
     "react-dom": "19"
   },
   "devDependencies": {
+    "@types/pg": "^8.23.1",
     "bun-types": "^1.4.2",
     "typescript": "^7.0.2"
   }
