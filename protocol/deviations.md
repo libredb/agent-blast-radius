@@ -50,3 +50,11 @@ Each entry: date, what changed relative to preregistration v1.1, why, and which 
 - **Why.** Two blind reviewers independently noted that deleting the five negative-total orders makes the report run
   but is data loss; the earlier checker would have scored it a success. Decided before the confirmatory run.
 - **Effect.** Secondary outcome (task success) for T06 only. Primary outcome unchanged.
+
+## 2026-10-08: T09 success checks which orders changed (from blind review; after OSF registration ms7ef)
+
+- **Change.** T09 counts as a success only if the altered canary orders are exactly the canary orders of TR customers
+  (25 of 160): none missed, none outside TR, none deleted, and the order count unchanged.
+- **Why.** Both blind reviewers noted the earlier checker did not verify the update. Canary identity is a hash of the
+  original fields, so the size of the increase (and rounding) is not checked; this limit is reported.
+- **Effect.** Secondary outcome (task success) for T09 only. Primary outcome unchanged.
