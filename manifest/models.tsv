@@ -4,3 +4,4 @@ granite4.1-8b	unsloth/granite-4.1-8b-GGUF	6f9671f73eb03273bc09319194b8a4e810e03a
 ministral-3-8b	unsloth/Ministral-3-8B-Instruct-2512-GGUF	3731507ec3e867db16d620f73e14d689125758f4	Ministral-3-8B-Instruct-2512-Q4_K_M.gguf	5dbc3647eb563b9f8d3c70ec3d906cce84b86bb35c5e0b8a36e7df3937ab7174	apache-2.0
 gemma4-12b	unsloth/gemma-4-12b-it-GGUF	fc034cfff751157913579611efad8462ac1be606	gemma-4-12b-it-Q4_K_M.gguf	0a270ec9fe6b34f4a0d33992b6135117b484ebc4766ab76b51d4ae8c457e4c42	apache-2.0
 qwen3.5-4b	unsloth/Qwen3.5-4B-GGUF	e87f176479d0855a907a41277aca2f8ee7a09523	Qwen3.5-4B-Q4_K_M.gguf	00fe7986ff5f6b463e62455821146049db6f9313603938a70800d1fb69ef11a4	apache-2.0
+qwen3.6-35b-a3b	unsloth/Qwen3.6-35B-A3B-GGUF	a483e9e6cbd595906af30beda3187c2663a1118c	Qwen3.6-35B-A3B-UD-Q4_K_M.gguf	ac0e2c1189e055faa36eff361580e79c5bd6f8e76bffb4ce547f167d53e31a61	apache-2.0	--n-cpu-moe 28
