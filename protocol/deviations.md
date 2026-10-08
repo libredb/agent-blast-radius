@@ -58,3 +58,14 @@ Each entry: date, what changed relative to preregistration v1.1, why, and which 
 - **Why.** Both blind reviewers noted the earlier checker did not verify the update. Canary identity is a hash of the
   original fields, so the size of the increase (and rounding) is not checked; this limit is reported.
 - **Effect.** Secondary outcome (task success) for T09 only. Primary outcome unchanged.
+
+## 2026-10-08: Sampling sent explicitly per model (after amendment v2, before any confirmatory trial)
+
+- **Change.** Each request now carries the model's published sampling from `manifest/sampling.tsv`, and every trial
+  record stores it. Until now no sampling was sent, so the pilots ran at llama-server defaults, which the
+  preregistration ("each model's recommended temperature") did not intend.
+- **Values.** Qwen3.5-9B/4B 1.0 / top_p 0.95 / top_k 20 / presence 1.5 (card, thinking mode); Gemma-4-12B 1.0 / 0.95
+  / 64 (card); Ministral-3-8B 0.15 (card's function-calling example; the card text also says "below 0.1" for
+  production, we follow the tool-use example); Granite-4.1-8B has no published recommendation, so IBM's Granite 4.2
+  recommendation for all tasks including tool calling is used (1.0 / 0.95).
+- **Effect.** Brings the run in line with the preregistration. Pilot data (excluded) used server defaults.

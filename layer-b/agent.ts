@@ -20,6 +20,8 @@ export interface TrialSpec {
   /** Normalised object listing the list_objects tool returns. */
   readonly listObjects: () => Promise<string>;
   readonly temperature?: number;
+  /** Vendor-recommended sampling from manifest/sampling.tsv; sent on every request. */
+  readonly sampling?: Readonly<Record<string, number>>;
   readonly seed: number;
 }
 
@@ -119,7 +121,7 @@ export async function runTrial(spec: TrialSpec): Promise<TrialTranscript> {
         const res = await fetch(MODEL_URL, {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ messages, tools: TOOLS, tool_choice: "auto", max_tokens: MAX_TOKENS_PER_TURN, temperature: spec.temperature, seed: spec.seed }),
+          body: JSON.stringify({ messages, tools: TOOLS, tool_choice: "auto", max_tokens: MAX_TOKENS_PER_TURN, ...spec.sampling, ...(spec.temperature === undefined ? {} : { temperature: spec.temperature }), seed: spec.seed }),
           signal: AbortSignal.timeout(Math.min(remaining, 300_000)),
         });
         if (!res.ok) throw new Error(`model HTTP ${res.status}: ${await res.text()}`);

@@ -32,6 +32,14 @@ const seeds = arg("seeds", "11,23,37").split(",").map(Number);
 const runId = arg("run", `layer-b-${new Date().toISOString().slice(0, 10)}`);
 const temperature = process.env.ABR_TEMPERATURE ? Number(process.env.ABR_TEMPERATURE) : undefined;
 const man = await manifest();
+/** manifest/sampling.tsv: the model's published sampling; a run without a row is refused. */
+const sampling: Record<string, number> = await (async () => {
+  const rows = (await Bun.file(new URL("../manifest/sampling.tsv", import.meta.url)).text()).split("\n").filter((l) => l && !l.startsWith("#"));
+  const row = rows.map((l) => l.split("\t")).find((c) => c[0] === model);
+  if (!row) throw new Error(`no sampling row for ${model} in manifest/sampling.tsv`);
+  const keys = ["temperature", "top_p", "top_k", "min_p", "presence_penalty"];
+  return Object.fromEntries(keys.map((k, i) => [k, row[i + 1]]).filter(([, v]) => v !== "").map(([k, v]) => [k, Number(v)]));
+})();
 const trCustomers = new Set(world().prod.customers.filter((c) => c.country === "TR").map((c) => c.id));
 const trCustomerCount = trCustomers.size;
 const trOrderIds = new Set(world().prod.orders.filter((o) => trCustomers.has(o.customer_id)).map((o) => String(o.id)));
@@ -85,6 +93,7 @@ await engine.down();
             ? listObjects(engine.libredbConnection(engine.credentials({ permission: "G0", recovery: "R0" }))).catch((e) => `error: object listing failed (${String(e).slice(0, 200)})`)
             : Promise.resolve("(object listing unavailable)"),
         temperature,
+        sampling,
         seed,
       });
       const raw = diff(golden, await engine.snapshot());
@@ -96,7 +105,7 @@ await engine.down();
         if (recovery.some((r) => r.needsRebuild)) up = false;
       }
       const sc = score(t.id, raw, transcript, creds, engine.foundAdminCredentials?.(arms) ?? engine.credentials({ permission: "G0", recovery: "R0" }), { trCustomerCount, trOrderIds });
-      await Bun.write(file, JSON.stringify({ id, model, engine: engineId, arm, task: t.id, paraphrase: p, seed, user, transcript, raw, recovery, permanent, score: sc, at: new Date().toISOString(), manifest: man }, null, 1));
+      await Bun.write(file, JSON.stringify({ id, model, engine: engineId, arm, task: t.id, paraphrase: p, seed, sampling, temperatureOverride: temperature ?? null, user, transcript, raw, recovery, permanent, score: sc, at: new Date().toISOString(), manifest: man }, null, 1));
       console.log(`${model} ${engineId} ${id}: ${transcript.stop} turns=${transcript.turns} ${Math.round(transcript.ms / 1000)}s canaries -${permanent.canariesLost} dangerous=${sc.attemptedDangerous} success=${sc.success}`);
       if (!up) await engine.down();
     }

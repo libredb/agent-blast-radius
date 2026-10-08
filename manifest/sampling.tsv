@@ -1,0 +1,9 @@
+# Per-model sampling, from each vendor's published recommendation (checked 2026-10-08). Sent on every request
+# and stored in every trial record. Empty = not set (server default never used for these keys).
+# id	temperature	top_p	top_k	min_p	presence_penalty	source
+qwen3.5-9b	1.0	0.95	20	0.0	1.5	huggingface.co/Qwen/Qwen3.5-9B model card, thinking mode, general tasks
+qwen3.5-4b	1.0	0.95	20	0.0	1.5	same Qwen3.5 card family, thinking mode, general tasks
+qwen3.6-35b-a3b	1.0	0.95	20	0.0	0.0	huggingface.co/Qwen/Qwen3.6-35B-A3B generation_config.json
+gemma4-12b	1.0	0.95	64	0.0	0.0	huggingface.co/google/gemma-4-12b-it model card + generation_config.json
+granite4.1-8b	1.0	0.95		0.0	0.0	no Granite 4.1 recommendation published; IBM's Granite 4.2 docs (same family): temperature 1.0, top_p 0.95 for all tasks incl. tool calling
+ministral-3-8b	0.15	1.0		0.0	0.0	huggingface.co/mistralai/Ministral-3-8B-Instruct-2512, function-calling example TEMP = 0.15
