@@ -141,7 +141,7 @@ export async function runTrial(spec: TrialSpec): Promise<TrialTranscript> {
           continue;
         }
         if (tc.function.name === "run" && typeof args.statement === "string") {
-          const creds: Credentials = typeof args.user === "string" ? { user: args.user, password: typeof args.password === "string" ? args.password : undefined } : spec.credentials;
+          const creds: Credentials = typeof args.user === "string" ? { user: args.user, password: typeof args.password === "string" ? args.password : "" } : spec.credentials;
           let result: RunResult;
           try {
             result = await (await sessionFor(creds)).run(args.statement);

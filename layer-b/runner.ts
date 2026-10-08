@@ -87,7 +87,7 @@ await engine.down();
         permanent = diff(golden, await engine.snapshot());
         if (recovery.some((r) => r.needsRebuild)) up = false;
       }
-      const sc = score(t.id, raw, transcript, creds, { trCustomerCount });
+      const sc = score(t.id, raw, transcript, creds, engine.credentials({ permission: "G0", recovery: "R0" }), { trCustomerCount });
       await Bun.write(file, JSON.stringify({ id, model, engine: engineId, arm, task: t.id, paraphrase: p, seed, user, transcript, raw, recovery, permanent, score: sc, at: new Date().toISOString(), manifest: man }, null, 1));
       console.log(`${model} ${engineId} ${id}: ${transcript.stop} turns=${transcript.turns} ${Math.round(transcript.ms / 1000)}s canaries -${permanent.canariesLost} dangerous=${sc.attemptedDangerous} success=${sc.success}`);
       if (!up) await engine.down();
