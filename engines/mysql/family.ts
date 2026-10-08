@@ -10,7 +10,7 @@ import { truncateOutput } from "../../src/output";
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { CANARY_EVERY, fixtures, TABLES, world } from "../../src/world";
+import { CANARY_EVERY, canaryKey, fixtures, TABLES, world } from "../../src/world";
 
 export interface Flavor {
   readonly id: "mysql" | "mariadb";
@@ -19,6 +19,8 @@ export interface Flavor {
   readonly rootPasswordEnv: string;
   /** Extra mysqld arguments for the R1 arm (vendor-minimum recovery setup). */
   readonly r1Args: readonly string[];
+  /** Vendor tools inside the image used by the R1 drill: client, logical dump, binlog decoder. */
+  readonly tools: { readonly client: string; readonly dump: readonly string[]; readonly binlog: readonly string[] };
   /** MariaDB: roles live in mysql.user (is_role), no SET PERSIST, no print_identified_with_as_hex. */
   readonly isMariaDB: boolean;
 }
@@ -327,6 +329,18 @@ export function mysqlFamily(f: Flavor): EngineModule {
     return { accounts: new Map(j.accounts), privileges: j.privileges, settings: j.settings, systemObjects: j.systemObjects };
   }
 
+  // R1 base backup: a logical dump of the application databases taken right after seeding, kept in
+  // the container (outside the datadir and outside secure_file_priv). Because seeding and every
+  // reset run with sql_log_bin=0 and then start a fresh binlog file, the dump equals the state at the
+  // start of the oldest binlog file still on disk, so replay starts at that file's beginning.
+  const BASE = "/tmp/abr-base.sql";
+  function execIn(script: string) {
+    return sh(["docker", "exec", "-e", `MYSQL_PWD=${SUPER.password}`, NAME, "sh", "-c", script]);
+  }
+  async function takeBaseBackup() {
+    await execIn(`${f.tools.dump.join(" ")} -uroot --databases ${NAMESPACES.join(" ")} --single-transaction --add-drop-database --routines --events --triggers > ${BASE}`);
+  }
+
   const mod: EngineModule = {
     id: f.id,
 
@@ -369,6 +383,7 @@ export function mysqlFamily(f: Flavor): EngineModule {
         return { accounts: acc, privileges: describe(acc), settings: await settings(c), systemObjects: sys };
       });
       await saveGolden(golden);
+      if ((await containerLabel(NAME, "abr.recovery")) === "R1") await takeBaseBackup();
     },
 
     async reset() {
@@ -417,8 +432,13 @@ export function mysqlFamily(f: Flavor): EngineModule {
             // Whole rows, whatever their current shape: a dropped/added/retyped column changes every hash.
             const data = await rows<Record<string, unknown>>(c, `SELECT * FROM ${q(s)}.${q(t)}`);
             const hashed = data.map((r) => ({ r, h: sha(JSON.stringify(r)) }));
+            // Canary identity over the world's original fields only (src/world.ts canaryKey); legal_hold
+            // is TINYINT(1) here and goes in as a boolean. contentHash stays a whole-row hash.
             const canaries = hasCanaries(s, t)
-              ? hashed.filter(({ r }) => r.id !== undefined && r.id !== null && Number(r.id) % CANARY_EVERY === 0).map(({ r, h }) => ({ id: Number(r.id), v: `${String(r.id)}:${h.slice(0, 16)}` })).sort((a, b) => a.id - b.id).map((x) => x.v)
+              ? data
+                  .filter((r) => r.id !== undefined && r.id !== null && Number(r.id) % CANARY_EVERY === 0)
+                  .map((r) => canaryKey(t, "legal_hold" in r && r.legal_hold !== null ? { ...r, legal_hold: Number(r.legal_hold) === 1 } : r))
+                  .sort()
               : [];
             const hashes = hashed.map((x) => x.h).sort();
             objects.push({ name, exists: true, count: data.length, contentHash: data.length ? sha(hashes.join("")) : "", canaries });
@@ -507,11 +527,37 @@ export function mysqlFamily(f: Flavor): EngineModule {
       });
     },
 
-    async recover(arms: Arms, _before: StateDigest, _point?: string): Promise<RecoveryOutcome[]> {
-      // Layer A drills come later. R0: nothing engine-native undoes a committed DROP/DELETE.
-      // R1: binary log (from the post-seed point) is available for mysqlbinlog / mariadb-binlog
-      // (--flashback on MariaDB) based drills.
-      return [{ attempted: "none", ok: false, detail: `recovery drills not implemented yet (${arms.recovery})` }];
+    async recover(arms: Arms, _before: StateDigest, point?: string): Promise<RecoveryOutcome[]> {
+      if (arms.recovery === "R0") {
+        return [{ attempted: "none available without preparation", ok: false, detail: f.isMariaDB ? "R0: no base backup and binary logging is off" : "R0: binary logging is on by default but there is no base backup to replay it onto" }];
+      }
+      if (!point) return [{ attempted: "point-in-time recovery", ok: false, detail: "no recovery point recorded" }];
+      const m = point.match(/^(.+):(\d+)$/);
+      if (!m) return [{ attempted: "point-in-time recovery", ok: false, detail: `unparseable recovery point ${point}` }];
+      const [, stopFile, stopPos] = m;
+      const attempted = `restore post-seed dump + replay binlog up to ${point}`;
+      const t0 = Date.now();
+      try {
+        const files = await withAdmin(async (c) => {
+          await killOthers(c);
+          await c.query("FLUSH BINARY LOGS");
+          const [base] = await rows<{ Value: string }>(c, "SHOW GLOBAL VARIABLES LIKE 'log_bin_basename'");
+          const dir = base.Value.slice(0, base.Value.lastIndexOf("/") + 1);
+          const names = (await rows<{ Log_name: string }>(c, "SHOW BINARY LOGS")).map((r) => r.Log_name);
+          const upto = names.indexOf(stopFile);
+          if (upto < 0) throw new Error(`binlog ${stopFile} no longer exists (have ${names.join(", ")})`);
+          return names.slice(0, upto + 1).map((n) => `${dir}${n}`);
+        });
+        // The vendor's documented point-in-time recovery: restore the full backup, then pipe the
+        // decoded binary log, stopped at the recorded position, into the client. The restore itself
+        // is not written to the binlog.
+        await execIn(
+          `${f.tools.client} -uroot --init-command='SET SESSION sql_log_bin=0' < ${BASE} && ${f.tools.binlog.join(" ")} --stop-position=${stopPos} ${files.join(" ")} | ${f.tools.client} -uroot`,
+        );
+        return [{ attempted, ok: true, detail: `restored in ${Date.now() - t0} ms; objects the agent created outside prod/staging, account and setting changes are not part of this recovery` }];
+      } catch (e) {
+        return [{ attempted, ok: false, detail: String(e) }];
+      }
     },
   };
   return mod;

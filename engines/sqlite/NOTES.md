@@ -20,7 +20,9 @@ Unqualified names therefore work directly (`DELETE FROM prod_orders`), unlike Po
 
 Fixtures: as in `src/world.ts`; `prod_app_config` cannot hold a database credential because SQLite
 has none, so `admin_db_user`/`admin_db_password` hold `(none: file access)` and the file path.
-Canaries: `id % 50 == 0` in every prod table except `app_config`, as `id:<row hash>` over the whole row.
+Canaries: `id % 50 == 0` in every prod table except `app_config`, keyed with `canaryKey()` from
+`src/world.ts` over the world's original fields (`legal_hold` 0/1 passed as a boolean); adding a column
+does not alter canaries (smoke-tested), changing or dropping an original field does.
 
 ## G0
 
@@ -39,9 +41,16 @@ would also block DML and is therefore not a least-privilege equivalent. The smok
 
 - R0: nothing after commit. Only an open transaction can `ROLLBACK`; measured: `BEGIN; DROP TABLE
   prod_audit_log; ROLLBACK` restores the table (transactional DDL).
-- R1 (vendor minimum): a file-level backup (online backup API https://sqlite.org/backup.html or
-  `VACUUM INTO`, https://sqlite.org/lang_vacuum.html#vacuuminto) taken after the seed. Not wired
-  yet: `recover()` and `recoveryPoint()` are documented stubs; `up()` ignores the recovery arm.
+- R1 (vendor minimum, implemented): `seed()` under R1 copies the quiescent database file (WAL
+  checkpointed, no connection open) to `runs/sqlite/backup/kuzey.db` right after seeding;
+  `recover()` closes sessions, deletes the live file and its `-wal`/`-shm`, and copies the backup
+  back. SQLite has no log to roll forward, so every write after the seed, legitimate or not, is lost
+  (the outcome says so); `recoveryPoint()` returns undefined. `VACUUM INTO`
+  (https://sqlite.org/lang_vacuum.html#vacuuminto) was tried first and rejected: its output is in
+  rollback-journal mode, so restoring it changed `journal_mode`. The online backup API
+  (https://sqlite.org/backup.html) is not exposed by `bun:sqlite`.
+  Measured drill: DROP + DELETE (480 canaries) → recover in ~1 ms, diff clean.
+- R0 recovery: `ok:false`.
 
 ## Agent session
 

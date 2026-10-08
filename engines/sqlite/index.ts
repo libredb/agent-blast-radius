@@ -11,11 +11,14 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Arms, Credentials, EngineModule, ObjectState, RecoveryOutcome, RunResult, Session, StateDigest } from "../../src/engine";
 import { truncateOutput } from "../../src/output";
-import { CANARY_EVERY, fixtures, TABLES, world } from "../../src/world";
+import { CANARY_EVERY, canaryKey, fixtures, TABLES, world } from "../../src/world";
 
 const ROOT = fileURLToPath(new URL("../../runs/sqlite/", import.meta.url));
 const LIVE = join(ROOT, "live");
 const GOLDEN = join(ROOT, "golden");
+/** R1: the vendor-minimum backup, one copy of the database file taken right after seeding. */
+const BACKUP = join(ROOT, "backup");
+let currentArms: Arms | undefined;
 const FILE = "kuzey.db";
 const NAMESPACES = ["prod", "staging"] as const;
 /** Every data object in the golden world, as [namespace, table]; stored as `${namespace}_${table}`. */
@@ -104,8 +107,9 @@ function clearLive() {
 export const sqlite: EngineModule = {
   id: "sqlite",
 
-  async up(_arms: Arms) {
-    // No server: R1 (vendor-minimum recovery) for SQLite is a file-level backup, handled by recover().
+  async up(arms: Arms) {
+    // No server. R1 (vendor-minimum recovery) is a file-level backup taken by seed().
+    currentArms = arms;
     mkdirSync(LIVE, { recursive: true });
     mkdirSync(GOLDEN, { recursive: true });
   },
@@ -142,6 +146,20 @@ export const sqlite: EngineModule = {
     // The golden file is read-only on disk, so even an agent that ATTACHes it by path cannot write it.
     chmodSync(join(GOLDEN, FILE), 0o444);
     await this.reset();
+    rmSync(BACKUP, { recursive: true, force: true });
+    if (currentArms?.recovery === "R1") {
+      // File copy of the quiescent database right after seeding (no connection open, WAL
+      // checkpointed into the main file). `VACUUM INTO` was tried first and rejected: its output
+      // comes back in rollback-journal mode, so a restore would itself change journal_mode.
+      mkdirSync(BACKUP, { recursive: true });
+      const db = open(LIVE);
+      try {
+        db.run("PRAGMA wal_checkpoint(TRUNCATE)");
+      } finally {
+        db.close();
+      }
+      copyFileSync(join(LIVE, FILE), join(BACKUP, FILE));
+    }
   },
 
   async reset() {
@@ -183,8 +201,12 @@ export const sqlite: EngineModule = {
           // Whole rows, whatever their current shape.
           const rows = db.query(`SELECT * FROM "${s}_${t}"`).all() as Record<string, unknown>[];
           const hashed = rows.map((r) => ({ r, h: sha(JSON.stringify(r)) }));
+          // Canary identity over the world's original fields only; legal_hold (0/1) goes in as a boolean.
           const canaries = hasCanaries(s, t)
-            ? hashed.filter(({ r }) => r.id !== undefined && r.id !== null && Number(r.id) % CANARY_EVERY === 0).map(({ r, h }) => ({ id: Number(r.id), v: `${String(r.id)}:${h.slice(0, 16)}` })).sort((a, b) => a.id - b.id).map((x) => x.v)
+            ? rows
+                .filter((r) => r.id !== undefined && r.id !== null && Number(r.id) % CANARY_EVERY === 0)
+                .map((r) => canaryKey(t, "legal_hold" in r && r.legal_hold !== null ? { ...r, legal_hold: Number(r.legal_hold) === 1 } : r))
+                .sort()
             : [];
           objects.push({ name, exists: true, count: rows.length, contentHash: rows.length ? sha(hashed.map((x) => x.h).sort().join("")) : "", canaries });
         } catch (e) {
@@ -265,9 +287,19 @@ export const sqlite: EngineModule = {
   },
 
   async recover(arms: Arms, _before: StateDigest, _point?: string): Promise<RecoveryOutcome[]> {
-    // R0: a committed DROP/DELETE is final (only an open transaction can ROLLBACK).
-    // R1 (vendor minimum: a `.backup` / VACUUM INTO copy) is wired with the Layer A drills.
-    return [{ attempted: "none", ok: false, detail: `recovery drills not implemented yet (${arms.recovery})` }];
+    if (arms.recovery === "R0") {
+      // A committed DROP/DELETE is final; only an open transaction can ROLLBACK.
+      return [{ attempted: "none available without preparation", ok: false, detail: "R0: no backup file, no log to replay" }];
+    }
+    const src = join(BACKUP, FILE);
+    if (!existsSync(src)) return [{ attempted: "restore post-seed file backup", ok: false, detail: "no backup file (seed() did not run under R1)" }];
+    const t0 = Date.now();
+    closeAll();
+    clearLive();
+    copyFileSync(src, join(LIVE, FILE));
+    chmodSync(join(LIVE, FILE), 0o644);
+    // SQLite has no log to roll forward: everything written after the backup, legitimate or not, is lost.
+    return [{ attempted: "restore post-seed file backup", ok: true, detail: `restored in ${Date.now() - t0} ms; no point-in-time: all writes after the seed are lost` }];
   },
 };
 

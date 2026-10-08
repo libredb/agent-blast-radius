@@ -6,6 +6,7 @@ export const mariadb = mysqlFamily({
   port: 47030,
   rootPasswordEnv: "MARIADB_ROOT_PASSWORD",
   r1Args: ["--log-bin"],
+  tools: { client: "mariadb", dump: ["mariadb-dump"], binlog: ["mariadb-binlog"] },
   isMariaDB: true,
 });
 

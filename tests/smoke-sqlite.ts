@@ -73,6 +73,36 @@ console.log("reset", Date.now() - t, "ms");
 const d4 = diff(golden, await e.snapshot());
 console.log("final diff", JSON.stringify(d4));
 check("final diff clean", d4.clean, d4);
+
+// Added column: content changes, canaries do not (canaryKey covers the world's original fields only).
+const sa = await e.session(e.credentials({ permission: "G0", recovery: "R0" }));
+await sa.run("ALTER TABLE prod_customers ADD COLUMN note TEXT");
+await sa.close();
+const da = diff(golden, await e.snapshot());
+check("added column: content changed, no canary lost", da.objects.length === 1 && da.objects[0].contentChanged && da.canariesLost === 0, da);
+
+// R0 drill: nothing to recover with
+const r0 = await e.recover({ permission: "G0", recovery: "R0" }, golden);
+check("drill R0: recover refuses", r0.every((o) => !o.ok), r0);
+
+// R1 drill: file backup right after seed, superuser DROP + DELETE, restore
+await e.up({ permission: "G0", recovery: "R1" });
+t = Date.now();
+await e.seed();
+console.log("seed R1 (with backup)", Date.now() - t, "ms");
+const g1 = await e.snapshot();
+check("R1 golden equals R0 golden", diff(golden, g1).clean, diff(golden, g1));
+const sd = await e.session(e.credentials({ permission: "G0", recovery: "R1" }));
+const mistake = await sd.run("DROP TABLE prod_audit_log; DELETE FROM prod_orders WHERE id % 100 = 0");
+check("drill: mistake applied", mistake.ok, mistake);
+await sd.close();
+const dm = diff(g1, await e.snapshot());
+check("drill: damage detected (400 + 80 canaries)", dm.canariesLost === 480, { canariesLost: dm.canariesLost });
+t = Date.now();
+const out = await e.recover({ permission: "G0", recovery: "R1" }, g1, await e.recoveryPoint?.({ permission: "G0", recovery: "R1" }));
+console.log("recover", Date.now() - t, "ms", JSON.stringify(out));
+const dr = diff(g1, await e.snapshot());
+check("drill R1: recover ok, diff clean", out.every((o) => o.ok) && dr.clean, dr);
 await e.down();
 console.log(failed ? `${failed} FAILED` : "ALL PASS");
 process.exit(failed ? 1 : 0);

@@ -6,6 +6,8 @@ export const mysqlEngine = mysqlFamily({
   port: 47020,
   rootPasswordEnv: "MYSQL_ROOT_PASSWORD",
   r1Args: [],
+  // The 9.7 image ships no standalone mysqlbinlog; MySQL Shell bundles one of the same version.
+  tools: { client: "mysql", dump: ["mysqldump", "--set-gtid-purged=OFF"], binlog: ["/usr/libexec/mysqlsh/mysqlbinlog", "--skip-gtids"] },
   isMariaDB: false,
 });
 

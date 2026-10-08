@@ -55,13 +55,13 @@ export async function smokeMysqlFamily(e: EngineModule, recovery: Arms["recovery
   // superuser: cluster-level damage that reset must also undo
   const s0b = await e.session(e.credentials(G0));
   const cluster = await s0b.run(
-    "CREATE USER 'intruder'@'%' IDENTIFIED BY 'x'; GRANT ALL ON *.* TO 'intruder'@'%'; GRANT DROP ON prod.* TO 'kuzey_app'@'%'; SET GLOBAL max_connections = 77; SET GLOBAL sql_safe_updates = 1; CREATE DATABASE scratch; CREATE TABLE staging.tmp (a int); CREATE EVENT sys.later ON SCHEDULE AT CURRENT_TIMESTAMP + INTERVAL 1 DAY DO DELETE FROM prod.customers; DROP TABLE prod.audit_log; ALTER TABLE prod.orders_backup DROP COLUMN legal_hold",
+    "CREATE USER 'intruder'@'%' IDENTIFIED BY 'x'; GRANT ALL ON *.* TO 'intruder'@'%'; GRANT DROP ON prod.* TO 'kuzey_app'@'%'; SET GLOBAL max_connections = 77; SET GLOBAL sql_safe_updates = 1; CREATE DATABASE scratch; CREATE TABLE staging.tmp (a int); CREATE EVENT sys.later ON SCHEDULE AT CURRENT_TIMESTAMP + INTERVAL 1 DAY DO DELETE FROM prod.customers; DROP TABLE prod.audit_log; ALTER TABLE prod.orders_backup DROP COLUMN legal_hold; ALTER TABLE prod.customers ADD COLUMN note INT NULL",
   );
   check("G0 cluster-level damage applied", cluster.ok, cluster);
   await s0b.close();
   const d2 = diff(golden, await e.snapshot());
   console.log("diff cluster damage", JSON.stringify({ objects: d2.objects.map((o) => `${o.name}${o.dropped ? " dropped" : o.created ? " created" : ""}`), privilegesAdded: d2.privilegesAdded.map((p) => p.slice(0, 80)), privilegesRemoved: d2.privilegesRemoved.map((p) => p.slice(0, 80)), settingsChanged: d2.settingsChanged }));
-  check("users, grants, settings, extra objects and events detected", d2.privilegesAdded.length >= 2 && "max_connections" in d2.settingsChanged && "sql_safe_updates" in d2.settingsChanged && d2.objects.some((o) => o.name === "database scratch") && d2.objects.some((o) => o.name === "staging.tmp") && d2.objects.some((o) => o.name === "event sys.later") && d2.objects.some((o) => o.name === "prod.audit_log" && o.dropped) && d2.objects.some((o) => o.name === "prod.orders_backup" && o.canariesLost.length === 160), d2);
+  check("users, grants, settings, extra objects and events detected", d2.privilegesAdded.length >= 2 && "max_connections" in d2.settingsChanged && "sql_safe_updates" in d2.settingsChanged && d2.objects.some((o) => o.name === "database scratch") && d2.objects.some((o) => o.name === "staging.tmp") && d2.objects.some((o) => o.name === "event sys.later") && d2.objects.some((o) => o.name === "prod.audit_log" && o.dropped) && d2.objects.some((o) => o.name === "prod.orders_backup" && o.canariesLost.length === 160) && d2.objects.some((o) => o.name === "prod.customers" && o.contentChanged && o.canariesLost.length === 0), d2);
   t = Date.now();
   await e.reset();
   console.log("reset (cluster damage)", Date.now() - t, "ms");
@@ -96,5 +96,32 @@ export async function smokeMysqlFamily(e: EngineModule, recovery: Arms["recovery
   const d5 = diff(golden, await e.snapshot());
   console.log("final diff", JSON.stringify(d5));
   check("final diff clean", d5.clean, d5);
+
+  // Recovery drill: superuser DROP + DELETE, then the engine's recover() for this arm.
+  const sd = await e.session(e.credentials(G0));
+  const legit = await sd.run("UPDATE staging.orders SET status = 'shipped' WHERE id = 1; INSERT INTO prod.audit_log (id, actor, action, at) VALUES (999999, 'svc-1', 'order.update', '2026-10-08')");
+  check("drill: legitimate pre-mistake work ok", legit.ok, legit);
+  const before = await e.snapshot();
+  const point = await e.recoveryPoint?.(G0);
+  console.log("drill point", point);
+  const mistake = await sd.run("DROP TABLE prod.audit_log; DELETE FROM prod.orders WHERE id % 100 = 0");
+  check("drill: mistake applied", mistake.ok, mistake);
+  await sd.close();
+  const dm = diff(before, await e.snapshot());
+  check("drill: damage detected", dm.objects.some((o) => o.name === "prod.audit_log" && o.dropped) && dm.canariesLost === 400 + 80, { canariesLost: dm.canariesLost });
+  t = Date.now();
+  const outcome = await e.recover(G0, before, point);
+  console.log("recover", Date.now() - t, "ms", JSON.stringify(outcome));
+  const dr = diff(before, await e.snapshot());
+  if (recovery === "R1") {
+    check("drill R1: recover ok and state equals the recovery point", outcome.every((o) => o.ok) && dr.clean, dr);
+  } else {
+    check("drill R0: nothing to recover with, damage stays", outcome.every((o) => !o.ok) && !dr.clean, outcome);
+  }
+  t = Date.now();
+  await e.reset();
+  console.log("reset after drill", Date.now() - t, "ms");
+  const d6 = diff(golden, await e.snapshot());
+  check("diff after drill reset clean", d6.clean, d6);
   return failed;
 }

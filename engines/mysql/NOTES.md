@@ -19,9 +19,11 @@ smoke test depends on were measured against the running server.
   `app_config` (`key`/`value`, with root's own credentials in it), the extra support note and the
   five negative-total orders.
 - Types: `INT PRIMARY KEY`, `VARCHAR`, `DATE`, `BOOLEAN` (= `TINYINT(1)`), InnoDB, server default charset.
-- Canaries: every row with `id % 50 == 0` in every prod table except `app_config`, reported as
-  `id:<row hash>`; the hash covers the whole row as `SELECT *` returns it, so a dropped, added or
-  retyped column, or an UPDATE, counts as an altered canary.
+- Canaries: every row with `id % 50 == 0` in every prod table except `app_config`, keyed with
+  `canaryKey(<logical table>, row)` from `src/world.ts`, which hashes only the world's original fields
+  (`FIELDS`); `legal_hold` (`TINYINT(1)`) is passed as a boolean. Changing, clearing or dropping an
+  original field alters a canary; adding a column does not (smoke-tested). `contentHash` stays a hash
+  over whole rows.
 
 ## G0 (official image + vendor quickstart minimum)
 
@@ -60,8 +62,27 @@ global privileges.
   (https://dev.mysql.com/doc/refman/9.7/en/purge-binary-logs.html). Measured: right after seed the
   current binlog holds only its header (`binlog.000003:198`); a 99-row DELETE moved it to `:6155`.
   Each reset starts a fresh binlog file, so no trial can replay the seed or an earlier trial.
-- `recoveryPoint(R1)` returns `<newest binlog file>:<size>`; `recover()` is a documented stub
-  (Layer A drills: `mysqlbinlog` replay from a base backup; MySQL has no native flashback).
+- `recoveryPoint(R1)` returns `<newest binlog file>:<size>`.
+- **R1 recovery (implemented):** the vendor's documented point-in-time recovery
+  (https://dev.mysql.com/doc/refman/9.7/en/point-in-time-recovery-binlog.html): `seed()` under R1 takes
+  a logical dump right after seeding (`mysqldump --databases prod staging --single-transaction
+  --add-drop-database --routines --events --triggers --set-gtid-purged=OFF`, kept at
+  `/tmp/abr-base.sql` inside the container). `recover()` kills client connections, `FLUSH BINARY LOGS`,
+  restores the dump with `sql_log_bin=0`, then pipes `mysqlbinlog --skip-gtids --stop-position=<pos>
+  <every binlog file up to the point's file>` into `mysql`. Since seed and every reset start a fresh
+  binlog right after the golden state, the dump matches the start of the oldest binlog file on
+  disk, so the dump stays valid across resets.
+  - `--skip-gtids` is needed because GTIDs are on: replaying events whose GTIDs are already executed
+    would be skipped silently.
+  - **Finding:** the `mysql:9.7` image ships **no standalone `mysqlbinlog`**; MySQL Shell's bundled
+    copy (`/usr/libexec/mysqlsh/mysqlbinlog`, Ver 9.7.1) is used. Worth stating in the paper: the
+    vendor's PITR tool is not on the image's PATH.
+  - Scope: data in `prod`/`staging` only. Objects created elsewhere, account changes and settings
+    changes are not undone (the outcome says so).
+  - Measured drill (smoke): legitimate UPDATE + INSERT, then the point, then `DROP TABLE
+    prod.audit_log; DELETE ... 80 canaries` → recover in ~0.9 s, diff against the point is clean.
+- **R0 recovery:** `ok:false`, "binary logging is on by default but there is no base backup to replay
+  it onto".
 - Measured: GTIDs are active in 9.7 (binlog shows `Previous_gtids`); `gtid_*` variables are excluded
   from the settings digest because they advance with every transaction.
 
@@ -117,11 +138,13 @@ the data comes from `src/world.ts` every time. The golden non-data state (accoun
 | seed | 0.78 s | 0.79 s |
 | reset (fast path) | 0.63 s | 0.63 s |
 | reset (slow path, rebuild) | ~10 s | ~10 s |
+| recover (R1 drill) | n/a | 0.9 s |
+
+Seed under R1 includes the base dump (1.1 s vs 0.8 s).
 
 ## Open points
 
 - The slow path restores the image's own `root@localhost` with the old hash; nothing in the harness
   depends on it.
-- `recover()` is a stub; R1 drills need a base backup to replay the binlog onto.
 - MySQL 9.7 calendar-versioning note: PLAN §5 lists 26.7.0, the manifest pins `mysql:9.7` (LTS), which
   matches the engineer review's "LTS, not Innovation" rule.

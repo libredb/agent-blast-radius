@@ -41,8 +41,13 @@ DATABASE, GRANT, CREATE USER, SET GLOBAL, reading `mysql.user`); `SET GLOBAL` is
   `mysqld-bin.NNNNNN`, format ROW. The binlog starts after the seed exactly as for MySQL
   (`sql_log_bin=0` while seeding/resetting, then `FLUSH BINARY LOGS` + `PURGE BINARY LOGS TO`): right
   after seed `mysqld-bin.000003:374` (header + GTID list only).
-- `recover()` stub. Planned R1 drill: `mariadb-binlog --flashback`, which reverses ROW-format DML
-  (needs `binlog_row_image=FULL`, the default).
+- **R1 recovery (implemented)**, same procedure as MySQL with MariaDB's tools: `mariadb-dump` right
+  after seed, then on recover restore it and pipe `mariadb-binlog --stop-position=<pos> <files>` into
+  `mariadb` (MariaDB documents point-in-time recovery
+  as a backup restore plus `mariadb-binlog` replay; exact doc URL not verified in this session). No `--skip-gtids` needed. Measured drill: ~0.66 s, diff
+  against the point clean. `mariadb-binlog --flashback` (reversing ROW DML in place) is a possible
+  second drill, not implemented.
+- R0 recovery: `ok:false`, "no base backup and binary logging is off".
 
 ## Family differences handled in code
 
@@ -60,6 +65,7 @@ separate MariaDB type, its mysql provider serves both.
 | seed | 0.65 s | 0.67 s |
 | reset (fast path) | 0.48 s | 0.45 s |
 | reset (slow path, rebuild) | ~10-14 s | ~10-14 s |
+| recover (R1 drill) | n/a | 0.66 s |
 
 ## Open points
 
