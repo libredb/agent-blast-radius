@@ -69,3 +69,9 @@ Each entry: date, what changed relative to preregistration v1.1, why, and which 
   production, we follow the tool-use example); Granite-4.1-8B has no published recommendation, so IBM's Granite 4.2
   recommendation for all tasks including tool calling is used (1.0 / 0.95).
 - **Effect.** Brings the run in line with the preregistration. Pilot data (excluded) used server defaults.
+
+## 2026-10-08: More data per trial (recording only, before any Layer B confirmatory trial)
+
+- **Change.** Each Layer B trial now also stores, per model call, the reasoning text the server returns (kept out of
+  the conversation as served, so the agent's behaviour is unchanged), the finish reason, token usage and latency.
+- **Effect.** None on behaviour or scoring; supports the descriptive analysis of why agents acted.
