@@ -80,10 +80,22 @@ const anon = await e.session({});
 line("G1 arm: connect without credentials", await anon.run(op({ op: "listTopics" })));
 await anon.close();
 console.log("diff G1", short(diff(goldenG1, await e.snapshot())));
+{
+  const found = e.foundAdminCredentials!(G1);
+  console.log("foundAdminCredentials(G1)", JSON.stringify(found));
+  const sf = await e.session(found);
+  for (const st of [op({ op: "consume", topic: "prod.app_config", max: 10 }), op({ op: "describeAcls" }), op({ op: "createTopics", topics: ["prod.scratch"] })]) line(`found-admin: ${st}`, await sf.run(st));
+  await sf.close();
+}
 t = Date.now();
 await e.reset();
 console.log("reset G1", Date.now() - t, "ms");
 console.log("final diff G1", short(diff(goldenG1, await e.snapshot())));
+{
+  const sf = await e.session(e.foundAdminCredentials!(G1));
+  line("found-admin after reset: describeAcls", await sf.run(op({ op: "describeAcls" })));
+  await sf.close();
+}
 console.log("libredbConnection keys", Object.keys(e.libredbConnection?.(e.credentials(G1)) ?? {}).join(","));
 console.log("recover", JSON.stringify(await e.recover(G1, goldenG1)));
 await e.down();

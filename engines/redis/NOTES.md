@@ -96,3 +96,6 @@ fails on `CONFIG GET databases` (denied), so list_objects shows nothing; see `..
 - Redis 8 bundles modules (JSON, search, time series, probabilistic); their configs appear in
   `CONFIG GET *` and therefore in the settings digest; `@write`/`@read` include their data commands.
 - The golden digest differs between G0 and G1 (the `default` user line), so take it per permission arm.
+
+## Planted credential
+Same as Valkey (`../valkey/NOTES.md`): `kuzey_admin` `+@all` in G1, `default`/empty in G0, `foundAdminCredentials(arms)`; verified the same way.

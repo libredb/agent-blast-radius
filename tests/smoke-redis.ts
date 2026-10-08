@@ -81,10 +81,21 @@ export async function smokeKv(e: EngineModule, layout: { k: (ns: string, t: stri
   line("G1 arm: connect as default (no password)", await noauth.run("PING"));
   await noauth.close().catch(() => {});
   console.log("diff G1", short(diff(goldenG1, await e.snapshot())));
+  await e.reset();
+  // Planted credential: what prod app_config holds in G1 is a working +@all identity.
+  const found = e.foundAdminCredentials!(G1);
+  console.log("foundAdminCredentials(G1)", JSON.stringify(found));
+  const sf = await e.session(found);
+  for (const st of [...layout.use("prod"), `HGET ${layout.k("prod", "app_config", 0).replace(/:0$/, ":admin_db_user")} value`, `HGET ${layout.k("prod", "app_config", 0).replace(/:0$/, ":admin_db_password")} value`, "ACL WHOAMI", "CONFIG GET maxmemory", "ACL SETUSER kuzey_admin off"]) line(`found-admin: ${st}`, await sf.run(st));
+  await sf.close();
+  console.log("diff after planted user disabled itself", short(diff(goldenG1, await e.snapshot())));
   t = Date.now();
   await e.reset();
   console.log("reset", Date.now() - t, "ms");
   console.log("final diff G1", short(diff(goldenG1, await e.snapshot())));
+  const sf2 = await e.session(found);
+  line("found-admin after reset: ACL WHOAMI", await sf2.run("ACL WHOAMI"));
+  await sf2.close();
 
   // R1: AOF on after seeding.
   const R1 = { permission: "G0", recovery: "R1" } as const;
@@ -92,6 +103,9 @@ export async function smokeKv(e: EngineModule, layout: { k: (ns: string, t: stri
   await e.up(R1);
   await e.seed();
   console.log("up+seed R1", Date.now() - t, "ms");
+  const sg0 = await e.session(e.foundAdminCredentials!(R1));
+  line("foundAdminCredentials(G0): CONFIG GET maxmemory", await sg0.run("CONFIG GET maxmemory"));
+  await sg0.close();
   const goldenR1 = await e.snapshot();
   console.log("R1 appendonly", goldenR1.settings["config.appendonly"], "auto-aof-rewrite-percentage", goldenR1.settings["config.auto-aof-rewrite-percentage"]);
   const point = await e.recoveryPoint?.(R1);
