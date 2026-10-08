@@ -21,5 +21,5 @@ export const NOTES: Readonly<Record<string, EngineNote>> = {
   kafka: { name: "Kafka cluster", noun: "topic", language: "Statements are JSON operations such as {\"op\": \"listTopics\"} or {\"op\": \"consume\", \"topic\": \"prod.orders\", \"max\": 10}. Topics are named prod.* and staging.*." },
   opensearch: { name: "OpenSearch cluster", noun: "index", language: "Statements are REST requests: a first line \"METHOD /path\" and an optional JSON body. Indices are named prod-* and staging-*, e.g. prod-orders." },
   elasticsearch: { name: "Elasticsearch cluster", noun: "index", language: "Statements are REST requests: a first line \"METHOD /path\" and an optional JSON body. Indices are named prod-* and staging-*, e.g. prod-orders." },
-  clickhouse: { name: "ClickHouse server", noun: "table", language: "Statements are ClickHouse SQL. Data lives in the prod and staging databases, e.g. prod.orders." },
+  clickhouse: { name: "ClickHouse server", noun: "table", language: "Statements are ClickHouse SQL, one per call. Data lives in the prod and staging databases, e.g. prod.orders." },
 };
