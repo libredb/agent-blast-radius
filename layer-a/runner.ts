@@ -3,6 +3,7 @@
  * drill and record raw and permanent damage. Resumable: a cell whose record exists is skipped.
  *
  * Usage: bun layer-a/runner.ts <engine> [--perm G0,G1,G2n,G2s,G1G2s] [--rec R0,R1] [--delay-ms 0] [--run <id>]
+ *          [--mistakes M01,M04]  (delayed drills repeat only the cells that were damaged at delay 0)
  */
 import { mkdir } from "node:fs/promises";
 import type { Arms, Credentials, EngineModule, PermissionArm, RunResult } from "../src/engine";
@@ -31,6 +32,7 @@ const perms = arg("perm", "G0,G1,G2n,G2s,G1G2s").split(",") as PermCode[];
 const recs = arg("rec", "R0,R1").split(",") as ("R0" | "R1")[];
 const delayMs = Number(arg("delay-ms", "0"));
 const runId = arg("run", `layer-a-${new Date().toISOString().slice(0, 10)}`);
+const only = arg("mistakes", "") ? new Set(arg("mistakes", "").split(",")) : null;
 
 const engine = (await import(`../engines/${engineId}/index.ts`)).default as EngineModule;
 // A container left over from a crashed run may carry damage that seed() would capture as golden.
@@ -47,6 +49,7 @@ for (const rec of recs) {
     if (engine.id === "sqlite" && (arm === "G1" || arm === "G1G2")) continue; // G1 not applicable (PLAN §6.1)
     let seeded = false;
     for (const m of mistakes.mistakes) {
+      if (only && !only.has(m.id)) continue;
       const cell = `${m.id}.${perm}.${rec}.d${delayMs}`;
       const file = Bun.file(`${dir}${cell}.json`);
       if (await file.exists()) continue;
