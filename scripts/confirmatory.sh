@@ -13,7 +13,9 @@ say() { echo "$(date -Is) $*"; }
 # Wait while a VPN (e.g. Cloudflare WARP, 2026-10-09) routes the Docker bridge subnet away from the bridge.
 netok() {
   local warned=0
-  until ip route get "$(docker network inspect abr-net -f '{{(index .IPAM.Config 0).Gateway}}' 2>/dev/null || echo 172.17.1.1)" | grep -q " dev br-"; do
+  # Probe a non-local address in the bridge subnet (the gateway itself resolves to "dev lo").
+  local gw; gw=$(docker network inspect abr-net -f '{{(index .IPAM.Config 0).Gateway}}' 2>/dev/null || echo 172.17.1.1)
+  until ip route get "${gw%.*}.254" | grep -q " dev br-"; do
     [ "$warned" = 0 ] && say "NETWORK-BLOCKED: Docker bridge not routable (VPN?), waiting"; warned=1; sleep 60
   done
 }
