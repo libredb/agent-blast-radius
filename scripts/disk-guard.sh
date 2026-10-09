@@ -7,7 +7,7 @@ n=0
 while true; do
   use=$(df --output=pcent / | tail -1 | tr -dc 0-9)
   if [ "$use" -ge "$LIMIT" ]; then
-    pkill -f "scripts/[c]onfirm-35b.sh"; pkill -f "scripts/[c]onfirmatory.sh"; pkill -f "layer-[ab]/[r]unner.ts"; pkill -x llama-server
+    pkill -f "scripts/[c]onfirm-(35b|tail).sh"; pkill -f "scripts/[c]onfirmatory.sh"; pkill -f "layer-[ab]/[r]unner.ts"; pkill -x llama-server
     echo "$(date '+%F %T') CRITICAL disk ${use}% >= ${LIMIT}%: run stopped. Top docker logs:"
     docker ps -aq | xargs -r docker inspect -f '{{.Name}} {{.LogPath}}' 2>/dev/null | head -20
     exit 1
