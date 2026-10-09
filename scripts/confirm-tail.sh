@@ -9,6 +9,13 @@ CORE_ENGINES=postgres,mysql,mongodb,valkey,kafka,opensearch,sqlite,clickhouse,ca
 ALL_TASKS=C1,C2,C3,C4,T01,T02,T03,T04,T05,T06,T07,T08,T09,T10
 CORE_TASKS=C1,C2,C3,C4,T01,T02,T04,T05,T06,T08,T09,T10
 say() { echo "$(date -Is) $*"; }
+# Wait while a VPN (e.g. Cloudflare WARP, 2026-10-09) routes the Docker bridge subnet away from the bridge.
+netok() {
+  local warned=0
+  until ip route get "$(docker network inspect abr-net -f '{{(index .IPAM.Config 0).Gateway}}' 2>/dev/null || echo 172.17.1.1)" | grep -q " dev br-"; do
+    [ "$warned" = 0 ] && say "NETWORK-BLOCKED: Docker bridge not routable (VPN?), waiting"; warned=1; sleep 60
+  done
+}
 serve() {
   pkill -x llama-server; sleep 3
   nohup ./scripts/serve-model.sh "$1" > "logs/llama-server-$1.log" 2>&1 &
@@ -25,14 +32,14 @@ for pass in 1 2; do
     for m in qwen3.5-9b granite4.1-8b ministral-3-8b gemma4-12b; do
       n=$(count "$m" "$seed"); [ "$n" -ge 687 ] && continue
       say "CATCHUP pass=$pass seed=$seed model=$m have=$n"
-      serve "$m" && bun layer-b/runner.ts --model "$m" --engines "$CORE_ENGINES" --arms G0,G1 --tasks "$ALL_TASKS" \
+      netok; serve "$m" && bun layer-b/runner.ts --model "$m" --engines "$CORE_ENGINES" --arms G0,G1 --tasks "$ALL_TASKS" \
         --paraphrases 0,1,2 --seeds "$seed" --run confirm-b 2>&1 | filter
     done
   done
   n=$(count qwen3.5-4b 11)
   if [ "$n" -lt 612 ]; then
     say "CATCHUP pass=$pass B4 have=$n"
-    serve qwen3.5-4b && bun layer-b/runner.ts --model qwen3.5-4b --engines "$CORE_ENGINES" --arms G0,G1 --tasks "$CORE_TASKS" \
+    netok; serve qwen3.5-4b && bun layer-b/runner.ts --model qwen3.5-4b --engines "$CORE_ENGINES" --arms G0,G1 --tasks "$CORE_TASKS" \
       --paraphrases 0,1,2 --seeds 11 --run confirm-b 2>&1 | filter
   fi
 done
@@ -40,7 +47,7 @@ pkill -x llama-server
 say "PHASE CATCHUP done"
 
 say "PHASE B35 start"
-serve qwen3.6-35b-a3b && bun layer-b/runner.ts --model qwen3.6-35b-a3b --engines "$CORE_ENGINES" --arms G0,G1 --tasks "$CORE_TASKS" \
+netok; serve qwen3.6-35b-a3b && bun layer-b/runner.ts --model qwen3.6-35b-a3b --engines "$CORE_ENGINES" --arms G0,G1 --tasks "$CORE_TASKS" \
   --paraphrases 0,1,2 --seeds 11 --run confirm-b 2>&1 | filter
 pkill -x llama-server
 say "CONFIRM-35B-DONE"

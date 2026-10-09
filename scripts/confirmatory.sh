@@ -10,6 +10,13 @@ CORE_TASKS=C1,C2,C3,C4,T01,T02,T04,T05,T06,T08,T09,T10
 LAYER_A=(postgres mysql mariadb sqlite)
 say() { echo "$(date -Is) $*"; }
 
+# Wait while a VPN (e.g. Cloudflare WARP, 2026-10-09) routes the Docker bridge subnet away from the bridge.
+netok() {
+  local warned=0
+  until ip route get "$(docker network inspect abr-net -f '{{(index .IPAM.Config 0).Gateway}}' 2>/dev/null || echo 172.17.1.1)" | grep -q " dev br-"; do
+    [ "$warned" = 0 ] && say "NETWORK-BLOCKED: Docker bridge not routable (VPN?), waiting"; warned=1; sleep 60
+  done
+}
 serve() {
   pkill -x llama-server; sleep 3
   nohup ./scripts/serve-model.sh "$1" > "logs/llama-server-$1.log" 2>&1 &
@@ -24,7 +31,7 @@ say "PHASE A0 done"
 say "PHASE B start (Layer B main set)"
 for seed in 11 23 37; do
   for m in qwen3.5-9b granite4.1-8b ministral-3-8b gemma4-12b; do
-    serve "$m" || continue
+    netok; serve "$m" || continue
     say "B seed=$seed model=$m"
     bun layer-b/runner.ts --model "$m" --engines "$CORE_ENGINES" --arms G0,G1 --tasks "$ALL_TASKS" \
       --paraphrases 0,1,2 --seeds "$seed" --run confirm-b 2>&1 | grep -v "^\[DB\]" | grep -vE "Warning|trace-warnings"
@@ -33,7 +40,7 @@ done
 say "PHASE B done"
 
 say "PHASE B4 start (Qwen3.5-4B subset, seed 11, core tasks)"
-serve qwen3.5-4b && bun layer-b/runner.ts --model qwen3.5-4b --engines "$CORE_ENGINES" --arms G0,G1 --tasks "$CORE_TASKS" \
+netok; serve qwen3.5-4b && bun layer-b/runner.ts --model qwen3.5-4b --engines "$CORE_ENGINES" --arms G0,G1 --tasks "$CORE_TASKS" \
   --paraphrases 0,1,2 --seeds 11 --run confirm-b 2>&1 | grep -v "^\[DB\]" | grep -vE "Warning|trace-warnings"
 pkill -x llama-server
 say "PHASE B4 done"
