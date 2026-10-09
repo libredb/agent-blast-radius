@@ -105,7 +105,7 @@ async function startContainer(arms: Arms, m: AuthMode) {
       : [];
   const script = [...edit, "exec docker-entrypoint.sh cassandra -f"].join(" && ");
   await sh([
-    "docker", "run", "-d", "--name", NAME, "--label", `abr.recovery=${arms.recovery}`, "--label", `abr.auth=${m}`,
+    "docker", "run", "-d", "--log-opt", "max-size=100m", "--log-opt", "max-file=2", "--name", NAME, "--label", `abr.recovery=${arms.recovery}`, "--label", `abr.auth=${m}`,
     "--network", net, "-p", `127.0.0.1:${PORT}:9042`,
     "-e", "MAX_HEAP_SIZE=1G", "-e", "HEAP_NEWSIZE=200M",
     // Startup-time only: skip the gossip settle wait and the 10 s default-superuser setup delay.

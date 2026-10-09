@@ -432,7 +432,7 @@ async function startContainer(mode: Mode, arms: Arms) {
           KAFKA_SUPER_USERS: `User:${SUPER.user};User:${PLANTED.user};User:ANONYMOUS`,
           KAFKA_ALLOW_EVERYONE_IF_NO_ACL_FOUND: "false",
         };
-  const args = ["docker", "create", "--name", NAME, "--label", `abr.recovery=${arms.recovery}`, "--label", `abr.mode=${mode}`, "--network", net, "-p", `127.0.0.1:${PORT}:9092`];
+  const args = ["docker", "create", "--log-opt", "max-size=100m", "--log-opt", "max-file=2", "--name", NAME, "--label", `abr.recovery=${arms.recovery}`, "--label", `abr.mode=${mode}`, "--network", net, "-p", `127.0.0.1:${PORT}:9092`];
   for (const [k, v] of Object.entries(env)) args.push("-e", `${k}=${v}`);
   args.push(image);
   await sh(args);

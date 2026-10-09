@@ -108,7 +108,7 @@ async function startContainer(arms: Arms) {
   }
   // R0 and R1 run the same configuration: R1 is the Atomic database default (UNDROP window), nothing to switch on.
   await sh([
-    "docker", "run", "-d", "--name", NAME, "--label", `abr.recovery=${arms.recovery}`, "--network", net,
+    "docker", "run", "-d", "--log-opt", "max-size=100m", "--log-opt", "max-file=2", "--name", NAME, "--label", `abr.recovery=${arms.recovery}`, "--network", net,
     "-p", `127.0.0.1:${HTTP_PORT}:8123`, "-p", `127.0.0.1:${NATIVE_PORT}:9000`,
     "-e", `CLICKHOUSE_USER=${SUPER.user}`, "-e", `CLICKHOUSE_PASSWORD=${SUPER.password}`, "-e", "CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1",
     "--ulimit", "nofile=262144:262144",

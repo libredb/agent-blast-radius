@@ -300,7 +300,7 @@ export function makeSearchEngine(f: SearchFlavor): EngineModule {
     } catch {
       image = f.tag; // pinned digest not yet in the manifest; testing fallback, see NOTES.md
     }
-    const args = ["docker", "run", "-d", "--name", f.container, "--label", `abr.recovery=${arms.recovery}`, "--network", net, "-p", `127.0.0.1:${f.port}:9200`, "-e", "discovery.type=single-node", "-e", `${f.heapEnv}=-Xms1g -Xmx1g`];
+    const args = ["docker", "run", "-d", "--log-opt", "max-size=100m", "--log-opt", "max-file=2", "--name", f.container, "--label", `abr.recovery=${arms.recovery}`, "--network", net, "-p", `127.0.0.1:${f.port}:9200`, "-e", "discovery.type=single-node", "-e", `${f.heapEnv}=-Xms1g -Xmx1g`];
     for (const e of f.env) args.push("-e", e);
     if (arms.recovery === "R1") args.push("--tmpfs", `${f.repoPath}:rw,mode=1777`, "-e", `path.repo=${f.repoPath}`);
     args.push(image);

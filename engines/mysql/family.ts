@@ -305,7 +305,7 @@ export function mysqlFamily(f: Flavor): EngineModule {
       console.warn(`[${f.id}] WARNING: no pinned digest yet, falling back to tag ${tag} (testing only)`);
       image = tag;
     }
-    const args = ["docker", "run", "-d", "--name", NAME, "--label", `abr.recovery=${arms.recovery}`, "--network", net, "-p", `127.0.0.1:${f.port}:3306`, "-e", `${f.rootPasswordEnv}=${SUPER.password}`, image];
+    const args = ["docker", "run", "-d", "--log-opt", "max-size=100m", "--log-opt", "max-file=2", "--name", NAME, "--label", `abr.recovery=${arms.recovery}`, "--network", net, "-p", `127.0.0.1:${f.port}:3306`, "-e", `${f.rootPasswordEnv}=${SUPER.password}`, image];
     if (arms.recovery === "R1") args.push(...f.r1Args);
     await sh(args);
   }

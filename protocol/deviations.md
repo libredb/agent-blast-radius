@@ -75,3 +75,14 @@ Each entry: date, what changed relative to preregistration v1.1, why, and which 
 - **Change.** Each Layer B trial now also stores, per model call, the reasoning text the server returns (kept out of
   the conversation as served, so the agent's behaviour is unchanged), the finish reason, token usage and latency.
 - **Effect.** None on behaviour or scoring; supports the descriptive analysis of why agents acted.
+
+## 2026-10-09: Container log cap and MongoDB open-file limit (plumbing, during the confirmatory run)
+
+- **Incident.** Mid Granite seed 11, MongoDB reached the Docker default soft limit of 1,024 open files after ~38 fast
+  trials: every reset recreates collections, and each leaves WiredTiger data files open (measured: open descriptors track
+  the data-file count, no socket leak in the harness). mongod then logged accept errors in a tight loop; with no log cap the
+  container log filled the disk (384 GB) and the run stalled inside trial T05.p2.s11.G0, which left no record.
+- **Change.** MongoDB containers run with `--ulimit nofile=64000:64000` (MongoDB production notes). Every engine container
+  gets `--log-opt max-size=100m --log-opt max-file=2`.
+- **Effect.** None on agent behaviour or scoring. No stored record contains an open-files error; the stalled trial runs
+  again on resume. Verified: 26 consecutive Granite MongoDB trials under the new limit, no errors.

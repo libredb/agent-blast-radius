@@ -331,7 +331,7 @@ export function makeKvEngine(f: KvFlavor): EngineModule {
     // A named volume for /data (the image declares none) so the recovery drill can edit the AOF
     // of a stopped server from a helper container.
     await sh(["docker", "volume", "rm", "-f", VOLUME], { allowFail: true });
-    await sh(["docker", "run", "-d", "--name", NAME, "--label", `abr.recovery=${arms.recovery}`, "--network", net, "-p", `127.0.0.1:${f.port}:6379`, "-v", `${VOLUME}:/data`, image, ...r1]);
+    await sh(["docker", "run", "-d", "--log-opt", "max-size=100m", "--log-opt", "max-file=2", "--name", NAME, "--label", `abr.recovery=${arms.recovery}`, "--network", net, "-p", `127.0.0.1:${f.port}:6379`, "-v", `${VOLUME}:/data`, image, ...r1]);
   }
 
   /** The pristine CONFIG GET * is kept outside the engine, keyed by container id, so a harness restart finds it. */

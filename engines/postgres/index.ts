@@ -55,7 +55,7 @@ async function startContainer(arms: Arms) {
   const net = await ensureNetwork();
   const image = await imageFor("postgres");
   await sh(["docker", "volume", "rm", "-f", VOLUME], { allowFail: true });
-  const args = ["docker", "run", "-d", "--name", NAME, "--label", `abr.recovery=${arms.recovery}`, "--network", net, "-p", `127.0.0.1:${PORT}:5432`, "-e", `POSTGRES_PASSWORD=${SUPER.password}`, "--shm-size", "256m", "-v", `${VOLUME}:/var/lib/postgresql`];
+  const args = ["docker", "run", "-d", "--log-opt", "max-size=100m", "--log-opt", "max-file=2", "--name", NAME, "--label", `abr.recovery=${arms.recovery}`, "--network", net, "-p", `127.0.0.1:${PORT}:5432`, "-e", `POSTGRES_PASSWORD=${SUPER.password}`, "--shm-size", "256m", "-v", `${VOLUME}:/var/lib/postgresql`];
   if (arms.recovery === "R1") {
     // Vendor minimum for point-in-time recovery: continuous WAL archiving plus a base backup taken after seeding.
     args.push(image, "postgres", "-c", "wal_level=replica", "-c", "archive_mode=on", "-c", `archive_command=test ! -f ${ARCHIVE}/%f && cp %p ${ARCHIVE}/%f`);

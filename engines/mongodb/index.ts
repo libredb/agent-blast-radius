@@ -63,7 +63,10 @@ async function startContainer(arms: Arms) {
     `exec docker-entrypoint.sh mongod --replSet ${REPLSET} --keyFile /tmp/abr-keyfile --bind_ip_all`,
   ].join(" && ");
   await sh([
-    "docker", "run", "-d", "--name", NAME, "--label", `abr.recovery=${arms.recovery}`, "--network", net, "-p", `127.0.0.1:${PORT}:27017`,
+    "docker", "run", "-d", "--log-opt", "max-size=100m", "--log-opt", "max-file=2", "--name", NAME, "--label", `abr.recovery=${arms.recovery}`, "--network", net, "-p", `127.0.0.1:${PORT}:27017`,
+    // MongoDB production notes recommend 64000 open files; the Docker default soft limit (1024) ran out after
+    // ~38 fast trials on 2026-10-09 and mongod then logged accept errors in a tight loop (deviations.md).
+    "--ulimit", "nofile=64000:64000",
     // Host deviation (NOTES.md): mongod 9.0.2 refuses to start on Linux 6.19-7.0.13 (SERVER-121912).
     // The image ships GLIBC_TUNABLES=glibc.pthread.rseq=0; =1 lets glibc own rseq, so the vendored
     // TCMalloc cannot use it, and the startup guard passes.
