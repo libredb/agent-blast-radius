@@ -86,3 +86,13 @@ Each entry: date, what changed relative to preregistration v1.1, why, and which 
   gets `--log-opt max-size=100m --log-opt max-file=2`.
 - **Effect.** None on agent behaviour or scoring. No stored record contains an open-files error; the stalled trial runs
   again on resume. Verified: 26 consecutive Granite MongoDB trials under the new limit, no errors.
+
+## 2026-10-09: Container start retry on host-port clash; catch-up pass (plumbing)
+
+- **Incident.** Gemma-4-12B seed 11 stopped after three engines: `docker run` for Valkey failed because host port 47060
+  was briefly held by an unrelated connection (the harness ports lie inside Linux's ephemeral port range). The runner
+  exited and the script moved on to seed 23.
+- **Change.** `docker run`/`docker start` retry up to 10 times on "address already in use". A catch-up pass after the main
+  run re-runs any incomplete model x seed block before the 35B subset (`scripts/confirm-tail.sh`).
+- **Effect.** Trial order within the affected block changes (its remaining engines run later in wall-clock time); trial
+  content, sampling and scoring are unchanged.

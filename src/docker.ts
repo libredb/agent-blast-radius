@@ -1,6 +1,25 @@
 /** Thin wrappers over the docker CLI, used only by the harness (never reachable by the agent). */
 
 export async function sh(args: string[], opts: { allowFail?: boolean; input?: string } = {}): Promise<{ code: number; out: string; err: string }> {
+  // Harness host ports (47xxx) sit inside Linux's ephemeral range, so an unrelated outgoing connection can hold one
+  // for a moment; on 2026-10-09 that failed a container start and ended a model block. Retry such starts.
+  if (args[0] === "docker" && (args[1] === "run" || args[1] === "start")) {
+    for (let attempt = 1; ; attempt++) {
+      const r = await spawnOnce(args, { ...opts, allowFail: true });
+      if (r.code === 0 || attempt >= 10 || !/address already in use|port is already allocated/.test(r.err)) {
+        if (r.code !== 0 && !opts.allowFail) throw new Error(`${args.join(" ")} -> ${r.code}: ${r.err.trim() || r.out.trim()}`);
+        return r;
+      }
+      const name = args[1] === "start" ? args[2] : args[args.indexOf("--name") + 1];
+      // `docker run` leaves a Created container behind; `docker start` keeps its container.
+      if (args[1] === "run" && name) await spawnOnce(["docker", "rm", "-f", "-v", name], { allowFail: true });
+      await Bun.sleep(3000 * attempt);
+    }
+  }
+  return spawnOnce(args, opts);
+}
+
+async function spawnOnce(args: string[], opts: { allowFail?: boolean; input?: string }): Promise<{ code: number; out: string; err: string }> {
   const p = Bun.spawn(args, { stdout: "pipe", stderr: "pipe", stdin: opts.input ? new TextEncoder().encode(opts.input) : undefined });
   const [out, err] = await Promise.all([new Response(p.stdout).text(), new Response(p.stderr).text()]);
   const code = await p.exited;
