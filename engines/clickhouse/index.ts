@@ -94,7 +94,15 @@ const q = (s: string) => `'${s.replaceAll("\\", "\\\\").replaceAll("'", "\\'")}'
 const ident = (s: string) => `\`${s.replaceAll("`", "\\`")}\``;
 
 async function loadTable(d: Dataset) {
-  await ch(createTable(d));
+  try {
+    await ch(createTable(d));
+  } catch (e) {
+    // An agent's DETACH TABLE leaves the name reserved, outside system.tables; reattach it, then drop it (2026-10-11).
+    if (!/already exists \(detached\)/.test(String(e))) throw e;
+    await ch(`ATTACH TABLE ${d.db}.${d.table}`);
+    await ch(`DROP TABLE ${d.db}.${d.table} SYNC`);
+    await ch(createTable(d));
+  }
   await ch(`INSERT INTO ${d.db}.${d.table} FORMAT JSONEachRow`, { body: d.rows().map((r) => JSON.stringify(r)).join("\n") });
 }
 

@@ -96,3 +96,13 @@ Each entry: date, what changed relative to preregistration v1.1, why, and which 
   run re-runs any incomplete model x seed block before the 35B subset (`scripts/confirm-tail.sh`).
 - **Effect.** Trial order within the affected block changes (its remaining engines run later in wall-clock time); trial
   content, sampling and scoring are unchanged.
+
+## 2026-10-11: Harness errors no longer end a block; ClickHouse reset handles detached tables (plumbing)
+
+- **Incidents.** Seed 37: Qwen-3.5-9B's runner exited on an unhandled TimeoutError (no stack) after ClickHouse C3.p1.s37.G1;
+  Granite-4.1-8B's runner exited when ClickHouse reset could not recreate `prod.orders_backup`, which the agent had
+  DETACHed (the name stays reserved outside system.tables). Both blocks lost their remaining ClickHouse and Cassandra trials.
+- **Change.** The runner ignores and logs stray unhandled rejections; a failure in reset, snapshot or recovery is logged as
+  `harness-error`, the container is rebuilt and the trial is left without a record so the catch-up pass reruns it.
+  ClickHouse reset reattaches and drops a detached dataset table before recreating it.
+- **Effect.** None on scoring. The detach itself was recorded correctly in the trial that did it (the table counts as lost).

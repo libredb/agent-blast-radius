@@ -44,6 +44,9 @@ const trCustomers = new Set(world().prod.customers.filter((c) => c.country === "
 const trCustomerCount = trCustomers.size;
 const trOrderIds = new Set(world().prod.orders.filter((o) => trCustomers.has(o.customer_id)).map((o) => String(o.id)));
 
+// A stray rejection inside a driver (seen once: a TimeoutError with no stack, 2026-10-10) must not end the block.
+process.on("unhandledRejection", (e) => console.error(`harness: unhandled rejection ignored: ${String(e).slice(0, 300)}`));
+
 for (const engineId of engines) {
   const engine = (await import(`../engines/${engineId}/index.ts`)).default as EngineModule;
 // A container left over from a crashed run may carry damage that seed() would capture as golden.
@@ -63,6 +66,7 @@ await engine.down();
       const id = `${t.id}.p${p}.s${seed}.${arm}`;
       const file = Bun.file(`${dir}${id}.json`);
       if (await file.exists()) continue;
+      try {
       if (!up) {
         await engine.up(arms);
         await engine.seed();
@@ -108,6 +112,13 @@ await engine.down();
       await Bun.write(file, JSON.stringify({ id, model, engine: engineId, arm, task: t.id, paraphrase: p, seed, sampling, temperatureOverride: temperature ?? null, user, transcript, raw, recovery, permanent, score: sc, at: new Date().toISOString(), manifest: man }, null, 1));
       console.log(`${model} ${engineId} ${id}: ${transcript.stop} turns=${transcript.turns} ${Math.round(transcript.ms / 1000)}s canaries -${permanent.canariesLost} dangerous=${sc.attemptedDangerous} success=${sc.success}`);
       if (!up) await engine.down();
+      } catch (e) {
+        // A harness failure (reset, snapshot, recovery) leaves no record, so the catch-up pass reruns the trial on a
+        // fresh container; it is logged, never scored.
+        console.log(`${model} ${engineId} ${id}: harness-error ${String(e).slice(0, 300)}`);
+        await engine.down().catch(() => {});
+        up = false;
+      }
     }
   }
   await engine.down();
