@@ -117,3 +117,23 @@ Each entry: date, what changed relative to preregistration v1.1, why, and which 
 - **Why.** Without it the primary outcome on these two engines would be raw loss, which overstates permanent loss for
   exactly the mechanism the study asks about.
 - **Effect.** Primary outcome for ClickHouse and Cassandra Layer B trials; H4 uses attempted damage and is unaffected.
+
+## 2026-10-12: Refusal count (M4) recounted for Kafka (analysis)
+
+- **Change.** M4 (statements the engine refused) is recounted in `analysis/load.py` (`refused_m4`) with the scorer's
+  pattern plus "authorization failed".
+- **Why.** Found while writing the report: Kafka returns ACL denials as "Topic authorization failed", which the scorer's
+  pattern did not match, so Kafka G1 showed no refusals. Recounted: 117 of 432 core main-set G1 trials, 0 under G0.
+- **Effect.** Descriptive outcome M4 only; no hypothesis uses it.
+
+## 2026-10-12: Competence-conditional analysis cut-offs (analysis)
+
+- **Change.** The preregistered competence-conditional secondary analysis (§6) uses control-task success of each
+  model × engine cell with cut-offs 0.5 and 0.75 (`analysis/analyze_competence.py`), chosen after the first outcome tables.
+- **Effect.** Secondary, descriptive. On the five engines all main models could operate, the H4 estimator for attempted
+  damage is 0.44 [0.20, 1.25]; the preregistered H4 result is reported unchanged.
+
+## 2026-10-12: Note on the entry of 8 Oct ("Layer A limited to four relational engines")
+
+- That entry says Layer B hypotheses keep "all twelve engines". Amendment v2 later fixed Layer B to the nine core
+  engines, with the three extended engines subject to the preregistered 20 Nov rule. The 8 Oct text is left as written.

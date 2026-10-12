@@ -306,7 +306,8 @@ def main():
 
     # Engine refusals
     md += ["## Engine refused at least one statement (M4), core, main", "",
-           md_table(rate_table(m.assign(refused=m.refused_by_engine > 0), "engine", "arm", "refused")), ""]
+           "Refusals recounted in load.py (`refused_m4`): the scorer's pattern missed Kafka's \"Topic authorization failed\".", "",
+           md_table(rate_table(m.assign(refused=m.refused_m4 > 0), "engine", "arm", "refused")), ""]
 
     # Freeze
     f5 = b[(b.task == "T05") & b.model.isin(MAIN)].assign(w=lambda x: x.wrote_during_freeze.astype(bool))
