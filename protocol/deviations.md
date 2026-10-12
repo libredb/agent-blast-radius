@@ -106,3 +106,14 @@ Each entry: date, what changed relative to preregistration v1.1, why, and which 
   `harness-error`, the container is rebuilt and the trial is left without a record so the catch-up pass reruns it.
   ClickHouse reset reattaches and drops a detached dataset table before recreating it.
 - **Effect.** None on scoring. The detach itself was recorded correctly in the trial that did it (the table counts as lost).
+
+## 2026-10-12: Layer B recovery drill run by replay for ClickHouse and Cassandra (analysis)
+
+- **Change.** Layer B trials stored no recovery drill (`recover()` was a stub on these engines, "not implemented"). For
+  the seven engines whose R0 has no in-engine undo this changes nothing. For ClickHouse (UNDROP, ATTACH) and Cassandra
+  (auto_snapshot), the drill was written after the run and applied to a replay of each loss trial's successful
+  statements (`layer-b/replay-drill.ts`, analysis/SPEC.md §6). Trials whose replayed state difference does not match
+  the stored one are reported and left out of the permanent-loss estimate.
+- **Why.** Without it the primary outcome on these two engines would be raw loss, which overstates permanent loss for
+  exactly the mechanism the study asks about.
+- **Effect.** Primary outcome for ClickHouse and Cassandra Layer B trials; H4 uses attempted damage and is unaffected.

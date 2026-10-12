@@ -463,11 +463,53 @@ export const cassandraEngine: EngineModule = {
     return undefined;
   },
 
-  async recover(_arms: Arms, _before: StateDigest, _point?: string): Promise<RecoveryOutcome[]> {
-    // Layer A drill, not implemented yet. R0 and R1 are the same configuration on Cassandra:
-    // auto_snapshot is on by default, so DROP/TRUNCATE leave a snapshot under the table directory;
-    // restore is `nodetool import` (or refresh) of that snapshot's sstables. DELETE leaves nothing.
-    return [{ attempted: "none", ok: false, detail: "recovery drills not implemented yet" }];
+  async recover(_arms: Arms, before: StateDigest, _point?: string): Promise<RecoveryOutcome[]> {
+    // R0 and R1 are the same configuration on Cassandra: auto_snapshot is on by default, so DROP/TRUNCATE leave a
+    // snapshot under the table directory; the restore is the vendor's: recreate the schema if it is gone, then
+    // `nodetool import` the snapshot's sstables. DELETE leaves nothing. reset() and seed() clear every snapshot, so
+    // any snapshot present now was taken during the trial; the earliest one per table is the state before the first
+    // DROP/TRUNCATE. Written 2026-10-12 for the Layer B replay drill (analysis/SPEC.md §6).
+    const listing = await sh(["docker", "exec", NAME, "sh", "-c", "find /var/lib/cassandra/data/prod /var/lib/cassandra/data/staging -mindepth 3 -maxdepth 3 -type d -path '*/snapshots/*' 2>/dev/null; true"]);
+    const snaps = new Map<string, { dir: string; ms: number }>();
+    for (const dir of listing.out.split("\n").map((l) => l.trim()).filter(Boolean)) {
+      const m = dir.match(/\/data\/(prod|staging)\/([a-z_]+)-[0-9a-f]+\/snapshots\/[a-z]+-(\d+)-/);
+      if (!m) continue;
+      const key = `${m[1]}.${m[2]}`;
+      const ms = Number(m[3]);
+      if (!snaps.has(key) || ms < snaps.get(key)!.ms) snaps.set(key, { dir, ms });
+    }
+    const out: RecoveryOutcome[] = [];
+    await withClient(async (c) => {
+      for (const ks of KEYSPACES) {
+        for (const t of TABLES_OF[ks]) {
+          const key = `${ks}.${t}`;
+          const was = before.objects.find((o) => o.name === key);
+          if (!was?.exists) continue;
+          const exists = (await c.execute("SELECT table_name FROM system_schema.tables WHERE keyspace_name = ? AND table_name = ?", [ks, t], { prepare: true })).rowLength > 0;
+          if (exists) {
+            const s = await scanTable(c, ks, t, false);
+            if (s.hash === was.contentHash && s.count === was.count) continue;
+          }
+          const snap = snaps.get(key);
+          if (!snap) {
+            out.push({ attempted: `restore ${key}`, ok: false, detail: exists ? "changed without DROP/TRUNCATE (DELETE/UPDATE/TTL): no snapshot, no undo" : "dropped but no snapshot found" });
+            continue;
+          }
+          try {
+            if ((await c.execute("SELECT keyspace_name FROM system_schema.keyspaces WHERE keyspace_name = ?", [ks], { prepare: true })).rowLength === 0) {
+              await c.execute(`CREATE KEYSPACE ${ks} WITH replication = {'class': 'NetworkTopologyStrategy', '${DC}': 1}`);
+            }
+            if (!exists) await c.execute(`CREATE TABLE ${ks}.${t} (${COLS[t]})`);
+            else await c.execute(`TRUNCATE ${ks}.${t}`); // leftover rows written after the snapshot are not "before"
+            const r = await nodetool("import", "--copy-data", ks, t, snap.dir);
+            out.push({ attempted: `nodetool import ${key} from ${snap.dir.split("/").pop()}`, ok: true, detail: (r.out + r.err).trim().slice(0, 200) || "imported" });
+          } catch (e) {
+            out.push({ attempted: `restore ${key}`, ok: false, detail: String(e).slice(0, 300) });
+          }
+        }
+      }
+    });
+    return out.length ? out : [{ attempted: "none", ok: true, detail: "no table needed recovery" }];
   },
 };
 

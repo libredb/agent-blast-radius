@@ -1,3 +1,5 @@
 node_modules/
 runs/
 logs/
+analysis/out/
+analysis/audit/

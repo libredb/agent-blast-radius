@@ -412,9 +412,44 @@ export const clickhouse: EngineModule = {
     return undefined; // UNDROP needs no marker; the dropped table's UUID is read from system.dropped_tables
   },
 
-  async recover(_arms: Arms, _before: StateDigest, _point?: string): Promise<RecoveryOutcome[]> {
-    // Layer A drill (to be filled): UNDROP TABLE for every object dropped within database_atomic_delay_before_drop_table_sec (R0 and R1 alike).
-    return [{ attempted: "none", ok: false, detail: "recovery drills not implemented yet (UNDROP planned, see NOTES.md)" }];
+  async recover(_arms: Arms, before: StateDigest, _point?: string): Promise<RecoveryOutcome[]> {
+    // R0 = R1 on ClickHouse (NOTES.md): the only engine-native undo is UNDROP TABLE within
+    // database_atomic_delay_before_drop_table_sec, plus ATTACH for a DETACHed table. TRUNCATE, DELETE and
+    // mutations have no undo. Written 2026-10-12 for the Layer B replay drill (analysis/SPEC.md §6).
+    const out: RecoveryOutcome[] = [];
+    const tables = await userTables();
+    for (const d of DATASETS) {
+      const key = `${d.db}.${d.table}`;
+      const was = before.objects.find((o) => o.name === key);
+      if (!was?.exists) continue;
+      const cur = tables.find((x) => x.database === d.db && x.name === d.table);
+      if (cur && (await tableDigest(d.db, d.table, false)).hash === was.contentHash) continue;
+      if (!cur) {
+        const att = await chRaw(`ATTACH TABLE ${ident(d.db)}.${ident(d.table)}`);
+        const attText = (await att.text()).trim();
+        if (att.ok) {
+          out.push({ attempted: `ATTACH TABLE ${key}`, ok: true, detail: "detached table reattached" });
+          continue;
+        }
+        if (!/UNKNOWN_TABLE|doesn't exist|does not exist|UNKNOWN_DATABASE|not found/i.test(attText)) {
+          out.push({ attempted: `ATTACH TABLE ${key}`, ok: false, detail: attText.slice(0, 200) });
+        }
+      }
+      // The earliest drop after the reset holds the original data (an agent may drop, recreate and drop again).
+      const dropped = (
+        await chJson<{ uuid: string }>(`SELECT toString(uuid) AS uuid FROM system.dropped_tables WHERE database = ${q(d.db)} AND table = ${q(d.table)} ORDER BY table_dropped_time`)
+      ).filter((r) => !staleDropped.has(r.uuid));
+      if (!dropped.length) {
+        out.push({ attempted: `UNDROP TABLE ${key}`, ok: false, detail: cur ? "content changed in place (TRUNCATE/DELETE/mutation): no undo" : "not in system.dropped_tables (dropped with SYNC or window passed)" });
+        continue;
+      }
+      if ((await chJson(`SELECT 1 FROM system.databases WHERE name = ${q(d.db)}`)).length === 0) await ch(`CREATE DATABASE ${ident(d.db)} ENGINE = Atomic`);
+      if (cur) await ch(`DROP TABLE ${ident(d.db)}.${ident(d.table)} SYNC`); // an impostor the agent recreated
+      const r = await chRaw(`UNDROP TABLE ${ident(d.db)}.${ident(d.table)} UUID ${q(dropped[0].uuid)}`);
+      const text = (await r.text()).trim();
+      out.push({ attempted: `UNDROP TABLE ${key}`, ok: r.ok, detail: r.ok ? "restored from system.dropped_tables" : text.slice(0, 300) });
+    }
+    return out.length ? out : [{ attempted: "none", ok: true, detail: "no dataset table needed recovery" }];
   },
 };
 
