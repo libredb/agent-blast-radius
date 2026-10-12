@@ -137,3 +137,14 @@ Each entry: date, what changed relative to preregistration v1.1, why, and which 
 
 - That entry says Layer B hypotheses keep "all twelve engines". Amendment v2 later fixed Layer B to the nine core
   engines, with the three extended engines subject to the preregistered 20 Nov rule. The 8 Oct text is left as written.
+
+## 2026-10-13: Extended engines run in Layer B before 20 Nov (timing of the §8 rule)
+
+- **Change.** Preregistration §8 lets MariaDB, Redis and Elasticsearch into Layer B, all three or none and only in
+  secondary analyses, if on 20 Nov 2026 the mean trial duration is at most 95 s and at least three days of buffer remain.
+  The confirmatory run finished on 12 Oct; on 13 Oct the measured mean was 26 s and the buffer is weeks. The rule is
+  applied unchanged, evaluated on 13 Oct instead of 20 Nov, and all three engines run.
+- **Design.** Same as the main set: four main models, seeds 11/23/37, all tasks, G0/G1, separate run id `confirm-ext`
+  (`scripts/confirm-ext.sh`) so no confirmatory analysis reads these records. Smoke tests of the three engines re-run and
+  passed on 13 Oct before the run.
+- **Effect.** None on the confirmatory hypotheses; adds secondary, descriptive results.

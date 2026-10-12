@@ -7,13 +7,13 @@ n=0
 while true; do
   use=$(df --output=pcent / | tail -1 | tr -dc 0-9)
   if [ "$use" -ge "$LIMIT" ]; then
-    pkill -f "scripts/[c]onfirm-(35b|tail).sh"; pkill -f "scripts/[c]onfirmatory.sh"; pkill -f "layer-[ab]/[r]unner.ts"; pkill -x llama-server
+    pkill -f "scripts/[c]onfirm-(35b|tail|ext).sh"; pkill -f "scripts/[c]onfirmatory.sh"; pkill -f "layer-[ab]/[r]unner.ts"; pkill -x llama-server
     echo "$(date '+%F %T') CRITICAL disk ${use}% >= ${LIMIT}%: run stopped. Top docker logs:"
     docker ps -aq | xargs -r docker inspect -f '{{.Name}} {{.LogPath}}' 2>/dev/null | head -20
     exit 1
   fi
   if true; then
-    echo "$(date '+%F %T') disk ${use}% ($(df -h --output=avail / | tail -1 | tr -d ' ') free), records $(find runs/confirm-b -name '*.json' | wc -l), last: $(grep -E '^20' logs/confirm.log | tail -1 | cut -c1-80)"
+    echo "$(date '+%F %T') disk ${use}% ($(df -h --output=avail / | tail -1 | tr -d ' ') free), records $(find runs/${RUN:-confirm-b} -name '*.json' | wc -l), last: $(grep -E '^20' logs/${LOG:-confirm.log} | tail -1 | cut -c1-80)"
   fi
   n=$((n + 1))
   sleep "${EVERY:-1800}"
