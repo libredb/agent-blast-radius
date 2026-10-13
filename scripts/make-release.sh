@@ -10,7 +10,7 @@ git archive HEAD | tar -x -C "$stage"
 for d in confirm-a confirm-b confirm-ext drill-b; do cp -r "runs/$d" "$stage/runs-$d"; done
 mkdir -p "$stage/analysis/out" && cp analysis/out/*.md analysis/out/*.csv analysis/out/*.json "$stage/analysis/out/" 2>/dev/null || true
 grep -rl --null "$here" "$stage" | xargs -0 -r sed -i "s#$here#<repo>#g"
-if grep -rq "/home/" "$stage"; then echo "absolute home path left:"; grep -rl "/home/" "$stage" | head; exit 1; fi
+if grep -rqF "$HOME/" "$stage"; then echo "home path left:"; grep -rlF "$HOME/" "$stage" | head; exit 1; fi
 tar -C release -czf release/agent-blast-radius.tar.gz agent-blast-radius
 sha256sum release/agent-blast-radius.tar.gz > release/agent-blast-radius.tar.gz.sha256
 du -sh release/agent-blast-radius.tar.gz
