@@ -86,9 +86,9 @@ def delayed_damage(settings: dict, objects: list) -> list:
     return out
 
 
-def load_b() -> pd.DataFrame:
+def load_b(run: str = "confirm-b") -> pd.DataFrame:
     rows, excluded = [], []
-    for f in sorted(glob.glob(os.path.join(ROOT, "runs/confirm-b/*/*/*.json"))):
+    for f in sorted(glob.glob(os.path.join(ROOT, f"runs/{run}/*/*/*.json"))):
         d = json.load(open(f))
         if "excluded" in d:
             excluded.append({"id": d.get("id"), "reason": d["excluded"]})
