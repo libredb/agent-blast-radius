@@ -3,3 +3,4 @@ runs/
 logs/
 analysis/out/
 analysis/audit/
+release/

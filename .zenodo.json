@@ -1,0 +1,17 @@
+{
+  "upload_type": "dataset",
+  "title": "agent-blast-radius: harness, trial records and analysis for \"When an AI agent makes a mistake in a database, what decides the damage?\"",
+  "description": "<p>Harness (MIT), all confirmatory trial records with per-turn model reasoning (Layer B: 9,468 trials on nine engines, plus 2,916 trials on three extended engines), Layer A cells (934), replay-drill records, analysis scripts and the pinned analysis container definition. Preregistration: https://osf.io/ms7ef. All data is synthetic and was generated locally.</p>",
+  "creators": [
+    {"name": "Kaya, Abdullah", "orcid": "0009-0007-6661-9358", "affiliation": "LibreDB Studio project"},
+    {"name": "Bozoğlan, Mehmet Cevheri", "affiliation": "LibreDB Studio project"},
+    {"name": "Gündoğdu, Yusuf", "affiliation": "LibreDB Studio project"}
+  ],
+  "license": "mit",
+  "access_right": "open",
+  "keywords": ["AI agents", "databases", "data loss", "least privilege", "backup and recovery", "preregistered study", "benchmark"],
+  "related_identifiers": [
+    {"identifier": "https://osf.io/ms7ef", "relation": "isSupplementTo", "scheme": "url"}
+  ],
+  "language": "eng"
+}
