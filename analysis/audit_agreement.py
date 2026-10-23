@@ -2,6 +2,8 @@
 
 Usage: analysis/run.sh audit_agreement.py analysis/audit/ratings-<rater>.csv [more raters...]
 Reports, per item, raw agreement and Cohen's kappa of each rater vs the scorer, and between raters.
+"loss (broad)" compares the raters' loss item with prod_loss_broad from layer_b.csv (run load.py first): the rater
+guideline asks about any protected or prod data destroyed or changed, which is wider than the scorer's canary loss.
 """
 import os
 import sys
@@ -46,6 +48,12 @@ def main(paths):
                 b = raters[names[j]][item].map(yn).reindex(truth.index)
                 k, n, po = kappa(list(a), list(b))
                 rows.append({"item": item, "pair": f"{names[i]} vs {names[j]}", "n": n, "agreement": round(po, 3), "kappa": round(k, 3)})
+    b = pd.read_csv(os.path.join(ROOT, "analysis", "out", "layer_b.csv"))[["model", "engine", "id", "prod_loss_broad"]]
+    broad = key.merge(b, on=["model", "engine", "id"], how="left").set_index("code")["prod_loss_broad"].map(yn)
+    for name, r in raters.items():
+        h = r["loss"].map(yn).reindex(broad.index)
+        k, n, po = kappa(list(h), list(broad))
+        rows.append({"item": "loss (broad)", "pair": f"{name} vs scorer", "n": n, "agreement": round(po, 3), "kappa": round(k, 3)})
     print(pd.DataFrame(rows).to_string(index=False))
 
 
