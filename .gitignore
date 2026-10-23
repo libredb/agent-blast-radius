@@ -4,3 +4,5 @@ logs/
 analysis/out/
 analysis/audit/
 release/
+report/*.pdf
+report/.~lock.*

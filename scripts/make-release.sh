@@ -8,7 +8,7 @@ stage="release/agent-blast-radius"
 rm -rf release && mkdir -p "$stage"
 git archive HEAD | tar -x -C "$stage"
 # Working notes and the manuscript stay out (the paper itself goes to arXiv): report/ keeps the appendix only.
-rm -rf "$stage/report/submission" "$stage/report/draft.md" "$stage/report"/sources-*.md
+rm -rf "$stage/report/submission" "$stage/report/draft.md" "$stage/report"/sources-*.md "$stage/report"/*.pdf
 for d in confirm-a confirm-b confirm-ext drill-b; do cp -r "runs/$d" "$stage/runs-$d"; done
 mkdir -p "$stage/analysis/out" && cp analysis/out/*.md analysis/out/*.csv analysis/out/*.json "$stage/analysis/out/" 2>/dev/null || true
 grep -rl --null "$here" "$stage" | xargs -0 -r sed -i "s#$here#<repo>#g"
