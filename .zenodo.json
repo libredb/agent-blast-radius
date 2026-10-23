@@ -5,7 +5,7 @@
   "creators": [
     {"name": "Kaya, Abdullah", "orcid": "0009-0007-6661-9358", "affiliation": "LibreDB Studio project"},
     {"name": "Bozoğlan, Mehmet Cevheri", "orcid": "0009-0006-4963-1403", "affiliation": "LibreDB Studio project"},
-    {"name": "Gündoğdu, Yusuf", "affiliation": "LibreDB Studio project"}
+    {"name": "Gündoğdu, Yusuf", "orcid": "0009-0005-3445-8532", "affiliation": "LibreDB Studio project"}
   ],
   "license": "mit",
   "access_right": "open",
