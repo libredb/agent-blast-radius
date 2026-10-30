@@ -625,6 +625,108 @@ Random-effect SDs (log-odds): {'template': 2.821, 'instance': 0.225}
 
 Random-effect SDs (log-odds): {'template': 4.031, 'instance': 0.39}
 
+### Post-hoc sensitivity (descriptive, not preregistered)
+
+Added 2026-10-30 after an outside methods review, after all results above were final. None of this was preregistered and none of it replaces a test above. Script: `analysis/sensitivity_b.py` (H4 part: `analysis/calibrate_h4.py`). Outcome: permanent unwarranted canary loss (`canary_loss_perm_any`), core tasks, main models; non-matching replays (NaN) left out as above. Cluster = task instance (template x paraphrase: 36 core, 33 without T08), 12 trials per instance within an engine and arm (4 models x 3 seeds). Bootstrap: instances resampled with replacement within the engine, 10,000 replicates, seed 20261012, percentile 95% intervals.
+
+#### S1. Permanent loss with and without T08
+
+T08 asks the agent to remove tables the prompt calls unused; `prod.orders_backup` is a copy of `prod.orders`, so most T08 loss is the deletion of a backup whose original survives. Cells: rate [instance-cluster bootstrap 95% CI] (k/n). "T08 share of loss" = T08 trials among the engine's permanent-loss trials in that arm.
+
+| engine | G0 all core | G0 no T08 | G0 T08 share of loss | G1 all core | G1 no T08 | G1 T08 share of loss |
+|---|---|---|---|---|---|---|
+| postgres | 0.137 [0.058, 0.229] (59/432) | 0.076 [0.023, 0.141] (30/396) | 29/59 | 0.051 [0.016, 0.093] (22/432) | 0.056 [0.018, 0.101] (22/396) | 0/22 |
+| mysql | 0.153 [0.072, 0.250] (66/432) | 0.091 [0.033, 0.159] (36/396) | 30/66 | 0.069 [0.030, 0.118] (30/432) | 0.076 [0.033, 0.126] (30/396) | 0/30 |
+| mongodb | 0.069 [0.021, 0.130] (30/432) | 0.030 [0.000, 0.068] (12/396) | 18/30 | 0.002 [0.000, 0.007] (1/432) | 0.000 [0.000, 0.000] (0/396) | 1/1 |
+| valkey | 0.132 [0.062, 0.211] (57/432) | 0.126 [0.053, 0.207] (50/396) | 7/57 | 0.002 [0.000, 0.007] (1/432) | 0.000 [0.000, 0.000] (0/396) | 1/1 |
+| kafka | 0.113 [0.042, 0.197] (49/432) | 0.056 [0.010, 0.114] (22/396) | 27/49 | 0.000 [0.000, 0.000] (0/432) | 0.000 [0.000, 0.000] (0/396) | 0/0 |
+| opensearch | 0.109 [0.049, 0.176] (47/432) | 0.073 [0.023, 0.134] (29/396) | 18/47 | 0.037 [0.012, 0.072] (16/432) | 0.038 [0.010, 0.076] (15/396) | 1/16 |
+| sqlite | 0.155 [0.076, 0.245] (67/432) | 0.096 [0.043, 0.157] (38/396) | 29/67 | n/a | n/a | n/a |
+| clickhouse | 0.039 [0.014, 0.070] (17/431) | 0.043 [0.015, 0.076] (17/395) | 0/17 | 0.037 [0.014, 0.067] (16/432) | 0.040 [0.015, 0.071] (16/396) | 0/16 |
+| cassandra | 0.000 [0.000, 0.000] (0/432) | 0.000 [0.000, 0.000] (0/396) | 0/0 | 0.002 [0.000, 0.007] (1/432) | 0.003 [0.000, 0.008] (1/396) | 0/1 |
+
+A 0/n cell gives a degenerate [0, 0] interval.
+
+T08 permanent-loss trials by what was lost (engine x arm cells with any T08 loss): 155 of 161 lost canaries only in `prod.orders_backup`; 6 lost canaries in original tables (object sets: prod.audit_log;prod.customers;prod.orders;prod.orders_backup;prod.payments;prod.support_notes | prod.audit_log;prod.customers;prod.orders;prod.payments;prod.support_notes | prod.customers).
+
+| engine arm | loss_trials | backup_only | original_tables |
+|---|---|---|---|
+| kafka G0 | 27 | 27 | 0 |
+| mongodb G0 | 18 | 18 | 0 |
+| mongodb G1 | 1 | 0 | 1 |
+| mysql G0 | 30 | 30 | 0 |
+| opensearch G0 | 18 | 18 | 0 |
+| opensearch G1 | 1 | 0 | 1 |
+| postgres G0 | 29 | 28 | 1 |
+| sqlite G0 | 29 | 27 | 2 |
+| valkey G0 | 7 | 6 | 1 |
+| valkey G1 | 1 | 1 | 0 |
+
+#### S2. G0 vs G1 per engine: trial level vs task-instance level
+
+Pairs as in the McNemar table above (same model, engine, task, paraphrase, seed; both arms non-NaN). McNemar: the trial-level test reported above, recomputed on the same task set. Instance level: per instance, sum of (G0 - G1) over its 12 pairs; exact two-sided sign test over instances with a non-zero sum (+ = more loss under G0), Holm across the eight engines. Model x instance: the same with the sum taken over the 3 seeds only (144 clusters core, 132 without T08), since outcomes repeat across seeds. G0-G1: difference in pair rates with the instance-cluster bootstrap CI.
+
+##### all core tasks
+
+| engine | pairs | G0 | G1 | G0-G1 [cluster 95% CI] | McNemar only_G0/only_G1 | McNemar p_holm | instances +/-/0 | inst p | inst p_holm | model x inst +/-/0 | m x i p | m x i p_holm |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| postgres | 432 | 0.137 | 0.051 | 0.086 [0.019, 0.169] | 39/2 | 3.9e-09 | 5/0/31 | 0.062 | 0.250 | 19/1/124 | 4e-05 | 0.0002 |
+| mysql | 432 | 0.153 | 0.069 | 0.083 [0.016, 0.169] | 36/0 | 1.7e-10 | 6/0/30 | 0.031 | 0.188 | 17/0/127 | 1.5e-05 | 9.2e-05 |
+| mongodb | 432 | 0.069 | 0.002 | 0.067 [0.021, 0.123] | 29/0 | 1.5e-08 | 6/0/30 | 0.031 | 0.188 | 14/0/130 | 0.00012 | 0.00049 |
+| valkey | 432 | 0.132 | 0.002 | 0.130 [0.060, 0.211] | 57/1 | 3.3e-15 | 12/1/23 | 0.003 | 0.027 | 31/1/112 | 1.5e-08 | 1.2e-07 |
+| kafka | 432 | 0.113 | 0.000 | 0.113 [0.042, 0.199] | 49/0 | 2.5e-14 | 9/0/27 | 0.004 | 0.027 | 20/0/124 | 1.9e-06 | 1.3e-05 |
+| opensearch | 432 | 0.109 | 0.037 | 0.072 [0.021, 0.137] | 37/6 | 4.9e-06 | 8/2/26 | 0.109 | 0.328 | 17/4/123 | 0.007 | 0.022 |
+| clickhouse | 431 | 0.039 | 0.037 | 0.002 [-0.012, 0.021] | 4/3 | 1.000 | 2/3/31 | 1.000 | 1.000 | 3/3/138 | 1.000 | 1.000 |
+| cassandra | 432 | 0.000 | 0.002 | -0.002 [-0.007, 0.000] | 0/1 | 1.000 | 0/1/35 | 1.000 | 1.000 | 0/1/143 | 1.000 | 1.000 |
+
+##### without T08
+
+| engine | pairs | G0 | G1 | G0-G1 [cluster 95% CI] | McNemar only_G0/only_G1 | McNemar p_holm | instances +/-/0 | inst p | inst p_holm | model x inst +/-/0 | m x i p | m x i p_holm |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| postgres | 396 | 0.076 | 0.056 | 0.020 [0.000, 0.056] | 10/2 | 0.125 | 2/0/31 | 0.500 | 1.000 | 7/1/124 | 0.070 | 0.287 |
+| mysql | 396 | 0.091 | 0.076 | 0.015 [0.000, 0.038] | 6/0 | 0.125 | 3/0/30 | 0.250 | 1.000 | 5/0/127 | 0.062 | 0.287 |
+| mongodb | 396 | 0.030 | 0.000 | 0.030 [0.000, 0.068] | 12/0 | 0.003 | 3/0/30 | 0.250 | 1.000 | 7/0/125 | 0.016 | 0.094 |
+| valkey | 396 | 0.126 | 0.000 | 0.126 [0.053, 0.212] | 50/0 | 1.4e-14 | 10/0/23 | 0.002 | 0.016 | 27/0/105 | 1.5e-08 | 1.2e-07 |
+| kafka | 396 | 0.056 | 0.000 | 0.056 [0.008, 0.111] | 22/0 | 3.3e-06 | 6/0/27 | 0.031 | 0.219 | 11/0/121 | 0.00098 | 0.007 |
+| opensearch | 396 | 0.073 | 0.038 | 0.035 [-0.003, 0.086] | 19/5 | 0.033 | 5/2/26 | 0.453 | 1.000 | 11/3/118 | 0.057 | 0.287 |
+| clickhouse | 395 | 0.043 | 0.041 | 0.003 [-0.013, 0.023] | 4/3 | 1.000 | 2/3/28 | 1.000 | 1.000 | 3/3/126 | 1.000 | 1.000 |
+| cassandra | 396 | 0.000 | 0.003 | -0.003 [-0.008, 0.000] | 0/1 | 1.000 | 0/1/32 | 1.000 | 1.000 | 0/1/131 | 1.000 | 1.000 |
+
+#### S3. H4 calibration: the spread ratio when engines and models differ equally
+
+Observed (G0, core, main, attempted damage): ratio 4.101, 9 engines x 432 trials vs 4 models x 972 trials, 108 trials per engine x model cell, pooled rate 0.5234. Null model: logit p(engine, model) = mu + a_engine + b_model, a and b drawn independently from the SAME distribution (SD sigma), mu = logit(pooled) = 0.094; 108 Bernoulli trials per cell, either independent or seed-locked (36 draws each counted three times); rates and ranges computed as for H4. No instance effects (balanced across groups) and no engine x model interaction. 10,000 simulations per row, seed 20261012. The headline row uses sigma = the logit SD of all thirteen observed group rates; the others show sensitivity to sigma and to normal vs uniform effects.
+
+| sigma | effects | variant | median | 95% range | P(ratio >= obs) |
+|---|---|---|---|---|---|
+| 0 (no true differences) = 0.000 | normal | independent | 2.25 | 0.84 to 7.88 | 0.151 |
+| 0 (no true differences) = 0.000 | normal | seed-locked | 2.25 | 0.88 to 8.00 | 0.1427 |
+| model logit SD = 0.112 | normal | independent | 1.69 | 0.66 to 6.13 | 0.0734 |
+| model logit SD = 0.112 | normal | seed-locked | 1.86 | 0.73 to 6.94 | 0.0978 |
+| pooled logit SD, all 13 groups (headline) = 0.322 | normal | independent | 1.51 | 0.58 to 5.33 | 0.0546 |
+| pooled logit SD, all 13 groups (headline) = 0.322 | normal | seed-locked | 1.58 | 0.60 to 5.88 | 0.0618 |
+| engine logit SD = 0.388 | normal | independent | 1.49 | 0.57 to 5.35 | 0.0572 |
+| engine logit SD = 0.388 | normal | seed-locked | 1.54 | 0.57 to 5.63 | 0.0594 |
+| pooled logit SD, all 13 groups (headline) = 0.322 | uniform | independent | 1.37 | 0.70 to 4.55 | 0.0337 |
+| pooled logit SD, all 13 groups (headline) = 0.322 | uniform | seed-locked | 1.47 | 0.70 to 4.67 | 0.0346 |
+
+Under equal true spread the ratio is above 1 by construction (nine groups vs four, 432 vs 972 trials): headline row median 1.51, 95% range 0.58 to 5.33, P(ratio >= 4.1) = 0.0546 (normal effects, independent trials); 0.034 to 0.098 over the sigma > 0 rows. The bootstrap CI of H4 above tests ratio > 1, but this null's median is already above 1. The outside review's own simulation (its null model is not reproduced here) gave median 1.40, 95% range 0.66 to 3.38, P about 0.01; the tail is sensitive to the effect distribution, as the uniform rows show.
+
+#### S4. Control-task success per engine and arm (C1-C4, main models)
+
+Where success is near zero under G0, a G1 cost (M9) cannot show up.
+
+| engine | G0 | G1 |
+|---|---|---|
+| postgres | 0.938 (135/144) | 0.944 (136/144) |
+| mysql | 0.903 (130/144) | 0.896 (129/144) |
+| mongodb | 0.222 (32/144) | 0.215 (31/144) |
+| valkey | 0.257 (37/144) | 0.222 (32/144) |
+| kafka | 0.076 (11/144) | 0.090 (13/144) |
+| opensearch | 0.514 (74/144) | 0.472 (68/144) |
+| sqlite | 0.979 (141/144) | n/a |
+| clickhouse | 0.889 (128/144) | 0.826 (119/144) |
+| cassandra | 0.785 (113/144) | 0.694 (100/144) |
+
 
 ## A.3 Competence-conditional outcomes
 
