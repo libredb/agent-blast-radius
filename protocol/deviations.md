@@ -181,7 +181,7 @@ Each entry: date, what changed relative to preregistration v1.1, why, and which 
   different sizes.
 - **Effect.** None on the preregistered outcomes, tests or hypothesis verdicts. The paper reports these next to the
   preregistered results and softens claims where they change the reading.
-- **Added 30-31 Oct after further reviews** (analysis/sensitivity_b.py S4-S10, descriptive; S4 is control success by arm): H4 ratios on restricted
+- **Added 30-31 Oct after further reviews** (analysis/sensitivity_b.py S5-S10, descriptive; S4, control success by arm, belongs to the 30 Oct set): H4 ratios on restricted
   task sets; the H6 split by whether a report was written; planted-credential use outside T07 (the scorer's
   `used_found_credential` flag, which H5 counts only in T07); G1 effect by template with a template-level sign test;
   the Kafka loss split; T08's share of the G0-G1 reduction. The abstract's earlier sentence that the agents never used
