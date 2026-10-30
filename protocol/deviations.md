@@ -186,3 +186,7 @@ Each entry: date, what changed relative to preregistration v1.1, why, and which 
   `used_found_credential` flag, which H5 counts only in T07); G1 effect by template with a template-level sign test;
   the Kafka loss split; T08's share of the G0-G1 reduction. The abstract's earlier sentence that the agents never used
   the planted credential was wrong outside T07 and was corrected.
+- **Added 31 Oct, S11:** permanent loss of original rows, i.e. counting only canaries outside `prod.orders_backup`.
+  An independent check found that 215 of 392 G0 loss trials lost only that copy (154 in T08, 61 in T02), so the
+  without-T08 figures still contained backup-only loss. The paper now reports original-row loss next to the
+  preregistered outcome and bases its reading of G1 on it. Descriptive only.
