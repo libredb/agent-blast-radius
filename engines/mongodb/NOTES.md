@@ -120,3 +120,7 @@ up 5.6 s, seed 0.64 s, snapshot 0.65 s, reset 0.67 s.
 `manifest/image-digests.tsv` had no mongodb row while this was built. `imageFor("mongodb")` threw, so
 the module fell back to the tag `mongo:9.0` (testing only). It will pick the pinned digest
 automatically once the manifest or the pull log has it.
+
+Note (2026-10-31): MongoDB's open ticket SERVER-136848 reports that the startup check reads `uname -r`, which Ubuntu keeps
+at 7.0.0 for the whole series, so it also stops Ubuntu kernels based on upstream 7.0.14. We did not establish the upstream
+patch level of the run host's `7.0.0-38` build, so the paper does not claim the kernel itself is affected.

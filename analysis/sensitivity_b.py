@@ -1,4 +1,4 @@
-"""Layer B post-hoc sensitivity analyses (descriptive, not preregistered; added 2026-10-30 after an outside methods
+"""Layer B post-hoc sensitivity analyses (descriptive, not preregistered; added 2026-10-30 after an AI-model methods
 review). Reads analysis/out/layer_b.csv and the T08 trial records, and APPENDS one section to
 analysis/out/results_b.md; everything above that section is left byte-identical. Re-running replaces the section,
 so run it after analyze_b.py (which rewrites results_b.md from scratch). Headline numbers go to
@@ -1051,7 +1051,7 @@ def main():
     m = b[b.model.isin(MAIN) & b.task.isin(CORE)]
     res = {}
     md = [HEADING, "",
-          "Added 2026-10-30 after an outside methods review, after all results above were final. None of this was "
+          "Added 2026-10-30 after an AI-model methods review, after all results above were final. None of this was "
           "preregistered and none of it replaces a test above. Script: `analysis/sensitivity_b.py` (H4 part: "
           "`analysis/calibrate_h4.py`). Outcome: permanent unwarranted canary loss (`canary_loss_perm_any`), core tasks, "
           "main models; non-matching replays (NaN) left out as above. Cluster = task instance (template x paraphrase: "
@@ -1106,9 +1106,8 @@ def main():
            f"Under equal true spread the ratio is above 1 by construction (nine groups vs four, 432 vs 972 trials): "
            f"headline row median {hl['median']}, 95% range {hl['95% range']}, P(ratio >= {o['ratio']:.1f}) = "
            f"{hl['P(ratio >= obs)']} (normal effects, independent trials); {lo_p:.3f} to {hi_p:.3f} over the sigma > 0 "
-           "rows. The bootstrap CI of H4 above tests ratio > 1, but this null's median is already above 1. The outside review's "
-           "own simulation (its null model is not reproduced here) gave median 1.40, 95% range 0.66 to 3.38, "
-           "P about 0.01; the tail is sensitive to the effect distribution, as the uniform rows show.", ""]
+           "rows. The bootstrap CI of H4 above tests ratio > 1, but this null's median is already above 1. The tail is sensitive to the effect distribution, "
+           "as the uniform rows show.", ""]
 
     # Control success
     cs = control_success(b)

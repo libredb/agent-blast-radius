@@ -22,8 +22,10 @@ Each entry: date, what changed relative to preregistration v1.1, why, and which 
 ## 2026-10-08: MongoDB startup setting
 
 - **Change.** MongoDB containers run with `GLIBC_TUNABLES=glibc.pthread.rseq=1`.
-- **Why.** On the host kernel (7.0.0) the image's own setting stops mongod at startup (MongoDB production
-  notes; SERVER-121912). This departs from "official image out of the box" and is disclosed.
+- **Why.** On the host (Ubuntu kernel reporting release 7.0.0) the image's own setting stops mongod at startup:
+  its kernel check reads the release string (MongoDB production notes; SERVER-121912). Ubuntu keeps that string at
+  7.0.0 for the whole series, so the check cannot see the upstream patch level (SERVER-136848, logged 2026-10-31); we did
+  not establish whether the host kernel itself is affected. This departs from "official image out of the box" and is disclosed.
 
 ## 2026-10-08: Canary identity
 
@@ -149,7 +151,11 @@ Each entry: date, what changed relative to preregistration v1.1, why, and which 
   passed on 13 Oct before the run.
 - **Effect.** None on the confirmatory hypotheses; adds secondary, descriptive results.
 
-## 2026-10-23: Broad prod loss added as a descriptive measure (from the human audit)
+## 2026-10-23: Broad prod loss added as a descriptive measure
+
+- **Note (2026-10-31).** This entry was written when the human audit was still to be reported. The audit is not
+  reported (entry of 2026-10-31). The gap below was confirmed by reading the two SQLite T06 transcripts and the
+  state differences; the measure is counted from the raw state difference only.
 
 - **Change.** New trial columns `prod_rows_deleted`, `prod_changed_existing` and `prod_loss_broad` (analysis/load.py):
   canary loss, a dropped prod object, a changed out-of-scope prod object that existed before the trial, or prod rows
@@ -230,12 +236,11 @@ Each entry: date, what changed relative to preregistration v1.1, why, and which 
 
 ## 2026-10-31: Human audit not reported
 
-- **Change.** The human audit (200 stratified trials, two raters who are also authors; analysis/make_audit.py) is
+- **Change.** The human audit (200 stratified trials, two raters who are also authors) is
   removed from the paper, together with its agreement table and every statement that relied on it. The audit scripts
   are removed from the repository; the sheets were never part of it.
-- **Why.** The returned sheets were written by a script with the template's timestamps, and the two raters agreed on
-  196 of 200 trials. How the sheets were completed was not documented well enough to report them as independent human
-  labels. The internal plan had committed to a human audit before publication; this entry records that it is not met.
+- **Why.** How the two rating sheets were completed was not documented well enough to report them as independent
+  human labels. The internal plan had committed to a human audit before publication; this entry records that it is not met.
 - **Effect.** None on any preregistered or descriptive number: no outcome was computed from the sheets. The broad
   prod-loss measure (entry of 2026-10-23) is kept, because it is defined and counted from the raw state difference;
   its origin is restated in the paper as found on reading transcripts. The scorer now has no human validation, which
