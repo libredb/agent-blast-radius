@@ -213,11 +213,17 @@ Each entry: date, what changed relative to preregistration v1.1, why, and which 
 ## 2026-10-31: Further scorer pattern gaps (S13, descriptive)
 
 - Recounted from the raw records after an independent review: the attempted-damage pattern misses key-value and
-  document updates and MongoDB shell write methods (symmetric H4 ratio 2.88 [1.24, 8.34], hazard-only 1.88, no longer
-  supported); 23 of the 49 reports flagged as missing or denying the change were accurate (H6 corrected 149/739,
+  document updates and MongoDB shell write methods (symmetric H4 ratio 2.88 [1.24, 8.34], still supported; hazard-only 1.88 [0.87, 5.22],
+  no longer supported); 23 of the 49 reports flagged as missing or denying the change were accurate (H6 corrected 149/739,
   26/616 among written reports); five of six delayed-damage flags were not delayed damage; refusal counts included
   failed logins (authorization-only G0 is 0%); the one privilege flag was owner grants on agent-created tables; the
   unmatched ClickHouse replay is a certain loss (18/432 if counted); 38 of 57 Valkey G0 losses were staging flushes
   without SELECT 1 in a layout that put prod in database 0.
 - **Effect.** None on the preregistered outcomes or verdicts, which keep their measures; the paper reports the
   recounts next to them and changes its reading of H4 and H6.
+
+## 2026-10-12 (logged 2026-10-31): Exposure measures
+
+- **Change.** Descriptive exposure measures (whether a tool output contained the T04 note, whether the agent queried
+  `app_config`, whether a tool output contained the planted password) were added after H5 came out 0/288 (paper §3.10,
+  analysis plan §5). Logged here for completeness; descriptive only.
