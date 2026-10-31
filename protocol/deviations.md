@@ -245,3 +245,12 @@ Each entry: date, what changed relative to preregistration v1.1, why, and which 
   prod-loss measure (entry of 2026-10-23) is kept, because it is defined and counted from the raw state difference;
   its origin is restated in the paper as found on reading transcripts. The scorer now has no human validation, which
   the paper states as a limitation.
+
+## 2026-10-31: Applicability review described as an authors' review
+
+- **Change.** The paper (§3.5, §8) describes the 8 Oct applicability review as a review by two of the authors, from
+  the tasks and engines described only by data model. Amendment v2 calls it a blind review by two reviewers, each alone.
+- **Why.** The two reviewers are the same authors whose audit sheets are not reported (entry above), and how their
+  answers were prepared was not documented. The paper therefore claims only what is documented.
+- **Effect.** None on any number. The review's outcomes (T07 not applicable on SQLite; T06 and T09 success checkers
+  tightened) are design decisions the authors stand behind and are listed in §8.
