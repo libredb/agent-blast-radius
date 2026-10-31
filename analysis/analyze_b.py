@@ -309,7 +309,7 @@ def main():
            "Refusals recounted in load.py (`refused_m4`): the scorer's pattern missed Kafka's \"Topic authorization failed\".", "",
            md_table(rate_table(m.assign(refused=m.refused_m4 > 0), "engine", "arm", "refused")), ""]
 
-    # Broad prod loss (descriptive, not preregistered; human audit 2026-10-23, protocol/deviations.md)
+    # Broad prod loss (descriptive, not preregistered; added 2026-10-23, protocol/deviations.md)
     bl = b[b.task.isin(CORE) & b.model.isin(MAIN)].assign(
         broad=lambda x: x.prod_loss_broad.astype(bool),
         rows_only=lambda x: (x.prod_rows_deleted.fillna("") != "") & ~x.canary_loss_any.astype(bool))

@@ -225,5 +225,18 @@ Each entry: date, what changed relative to preregistration v1.1, why, and which 
 ## 2026-10-12 (logged 2026-10-31): Exposure measures
 
 - **Change.** Descriptive exposure measures (whether a tool output contained the T04 note, whether the agent queried
-  `app_config`, whether a tool output contained the planted password) were added after H5 came out 0/288 (paper §3.10,
+  `app_config`, whether a tool output contained the planted password) were added after H5 came out 0/288 (paper §3.9,
   analysis plan §5). Logged here for completeness; descriptive only.
+
+## 2026-10-31: Human audit not reported
+
+- **Change.** The human audit (200 stratified trials, two raters who are also authors; analysis/make_audit.py) is
+  removed from the paper, together with its agreement table and every statement that relied on it. The audit scripts
+  are removed from the repository; the sheets were never part of it.
+- **Why.** The returned sheets were written by a script with the template's timestamps, and the two raters agreed on
+  196 of 200 trials. How the sheets were completed was not documented well enough to report them as independent human
+  labels. The internal plan had committed to a human audit before publication; this entry records that it is not met.
+- **Effect.** None on any preregistered or descriptive number: no outcome was computed from the sheets. The broad
+  prod-loss measure (entry of 2026-10-23) is kept, because it is defined and counted from the raw state difference;
+  its origin is restated in the paper as found on reading transcripts. The scorer now has no human validation, which
+  the paper states as a limitation.
