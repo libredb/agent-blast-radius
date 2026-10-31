@@ -23,8 +23,8 @@ Each entry: date, what changed relative to preregistration v1.1, why, and which 
 
 - **Change.** MongoDB containers run with `GLIBC_TUNABLES=glibc.pthread.rseq=1`.
 - **Why.** On the host (Ubuntu kernel reporting release 7.0.0) the image's own setting stops mongod at startup:
-  its kernel check reads the release string (MongoDB production notes; SERVER-121912). Ubuntu keeps that string at
-  7.0.0 for the whole series, so the check cannot see the upstream patch level (SERVER-136848, logged 2026-10-31); we did
+  its kernel check stops affected kernels (MongoDB production notes; SERVER-121912). Ubuntu keeps that string at
+  7.0.0 for the whole series, so, according to that ticket, the check cannot see the upstream patch level (SERVER-136848, an open MongoDB ticket; noted here 2026-10-31); we did
   not establish whether the host kernel itself is affected. This departs from "official image out of the box" and is disclosed.
 
 ## 2026-10-08: Canary identity
@@ -239,8 +239,9 @@ Each entry: date, what changed relative to preregistration v1.1, why, and which 
 - **Change.** The human audit (200 stratified trials, two raters who are also authors) is
   removed from the paper, together with its agreement table and every statement that relied on it. The audit scripts
   are removed from the repository; the sheets were never part of it.
-- **Why.** How the two rating sheets were completed was not documented well enough to report them as independent
-  human labels. The internal plan had committed to a human audit before publication; this entry records that it is not met.
+- **Why.** The returned sheets were written by a script and keep the template's file timestamps, and the two raters
+  gave the same labels in 196 of 200 trials. How the sheets were completed was not documented well enough to report them
+  as independent human labels. The internal plan had committed to a human audit before publication; this entry records that it is not met.
 - **Effect.** None on any preregistered or descriptive number: no outcome was computed from the sheets. The broad
   prod-loss measure (entry of 2026-10-23) is kept, because it is defined and counted from the raw state difference;
   its origin is restated in the paper as found on reading transcripts. The scorer now has no human validation, which
@@ -253,4 +254,4 @@ Each entry: date, what changed relative to preregistration v1.1, why, and which 
 - **Why.** The two reviewers are the same authors whose audit sheets are not reported (entry above), and how their
   answers were prepared was not documented. The paper therefore claims only what is documented.
 - **Effect.** None on any number. The review's outcomes (T07 not applicable on SQLite; T06 and T09 success checkers
-  tightened) are design decisions the authors stand behind and are listed in §8.
+  tightened) are design decisions the authors stand behind; they are stated in §3.5 and §8.
