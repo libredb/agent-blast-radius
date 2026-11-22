@@ -6,3 +6,4 @@ analysis/audit/
 release/
 report/*.pdf
 report/.~lock.*
+report/submission/arxiv/
