@@ -1,6 +1,6 @@
 # agent-blast-radius: harness architecture
 
-Study plan (Turkish, private until publication): `libredb-studio/growth/ajan-hasar-calismasi/PLAN.md`.
+Study design: the preregistration (https://osf.io/ms7ef, also in `protocol/`).
 
 ## Layers
 
