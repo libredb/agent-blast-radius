@@ -26,8 +26,8 @@ Every engine module under `engines/<id>/` implements `EngineModule`:
 | `recover(damage, delayMs)` | Engine-native recovery drill (no external backup in R0; vendor-minimum setup in R1) |
 
 `StateDigest` comparison (`src/diff.ts`) yields: damage per object, canary loss, privilege changes,
-delayed-damage markers. The diff is **mutation-tested** (`tests/mutation/`): known damage is injected
-and must be detected.
+delayed-damage markers. The diff is **mutation-tested** by the engine smoke tests (`tests/smoke-*.ts`, all run by
+`scripts/smoke-all.sh`): known damage is injected and must be detected.
 
 ## Isolation rules
 
