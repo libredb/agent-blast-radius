@@ -1,7 +1,7 @@
 # agent-blast-radius
 
 Harness, trial records and analysis for the paper **"When an AI agent makes a mistake in a database, what decides the
-damage?"** by Abdullah Kaya, Mehmet Cevheri Bozoğlan and Yusuf Gündoğdu (LibreDB Studio project).
+damage?"** by Abdullah Kaya, Mehmet Cevheri Bozoğlan and Yusuf Gündoğdu ([LibreDB Studio](https://github.com/libredb/libredb-studio) project).
 
 - Paper: [arXiv:2611.30483](https://arxiv.org/abs/2611.30483)
 - Archive with all trial records: https://doi.org/10.5281/zenodo.24445015
